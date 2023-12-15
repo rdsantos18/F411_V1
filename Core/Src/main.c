@@ -374,11 +374,11 @@ void filter_adc(void)
 		ADC_vref = ( ( filter_adc_2[0]+filter_adc_2[1]+filter_adc_2[2]+filter_adc_2[3]+filter_adc_2[4]+filter_adc_2[5]+filter_adc_2[6]+filter_adc_2[7] ) / 8 );
 
 		// VDDA can be calculated based on the measured vref and the calibration data
-	    vdda = (float)VREFINT_CAL_VREF * (float)*VREFINT_CAL_ADDR / ADC_vref / 1000;
+	    vdda = (float)VREFINT_CAL_VREF * (float)*VREFINT_CAL_ADDR / ADC_vref / 1000.0;
 
 	    // Knowing vdda and the resolution of adc - the actual voltage can be calculated
-	    vref = (float) vdda / 4095.0 * ADC_vref;
-	    vbat = (float) (vdda / 4095.0 * ADC_vbat)*3.0;
+	    vref = (float)(vdda / 4095.0 * ADC_vref);
+	    vbat = (float)(vdda / 4095.0 * ADC_vbat) * 3.0;
 
 		flt_flag = 0;
 	}
