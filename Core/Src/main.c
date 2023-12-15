@@ -117,8 +117,8 @@ static lv_color_t buf1[(ILI9341_SCREEN_WIDTH * 20)];	// Declare a buffer for 1/1
 static lv_color_t buf2[(ILI9341_SCREEN_WIDTH * 20)];
 static lv_disp_drv_t disp_drv;        					// Descriptor of a display driver
 
-max31856_t therm_iron = {&hspi2, {CS_IRON_GPIO_Port, CS_IRON_Pin}};
-max31856_t therm_gun  = {&hspi2, {CS_GUN_GPIO_Port, CS_GUN_Pin}};
+max31856_t therm_iron = {&hspi1, {CS_IRON_GPIO_Port, CS_IRON_Pin}};
+max31856_t therm_gun  = {&hspi1, {CS_GUN_GPIO_Port, CS_GUN_Pin}};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
