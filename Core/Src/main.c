@@ -214,14 +214,14 @@ int main(void)
   ILI9341_Fill_Screen(BLACK);
 
   // Teste LCD
-  HAL_Delay(2000);
-  ILI9341_Fill_Screen(RED);
-  HAL_Delay(2000);
-  ILI9341_Fill_Screen(GREEN);
-  HAL_Delay(2000);
-  ILI9341_Fill_Screen(BLUE);
-  HAL_Delay(2000);
-  ILI9341_Fill_Screen(BLACK);
+//  HAL_Delay(2000);
+//  ILI9341_Fill_Screen(RED);
+//  HAL_Delay(2000);
+//  ILI9341_Fill_Screen(GREEN);
+//  HAL_Delay(2000);
+//  ILI9341_Fill_Screen(BLUE);
+//  HAL_Delay(2000);
+//  ILI9341_Fill_Screen(BLACK);
 
   Evt_InitQueue();
   KeyboardInit(0x01);
@@ -299,8 +299,11 @@ int main(void)
 	// Log Debug
 	if(HAL_GetTick() - timer_debug > 1000) {
 		timer_debug = HAL_GetTick();
-		sprintf(string_usb, "ENC1: %04ld [0] %ld ( %ld )  [1] %ld ( %ld ) PWM: %d \n\r",
-			    enc1_last, dimmer_value[0], dimmer_out[0], dimmer_value[1], dimmer_out[1], pwm_iron);
+		sprintf(string_usb, "ENC1: %04ld [0] %ld ( %ld )  [1] %ld ( %ld ) PWM: %d TS: %0.2f TG: %0.2f \n\r",
+			    enc1_last, dimmer_value[0], dimmer_out[0],
+				dimmer_value[1], dimmer_out[1],
+				pwm_iron,
+				temp_iron, temp_gun );
 		LogDebug(string_usb);
 	}
   }
@@ -367,19 +370,16 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 void filter_adc(void)
 {
 	if(flt_flag == 1) {
-        ADC_vref = ( ( filter_adc_1[0]+filter_adc_1[1]+filter_adc_1[2]+filter_adc_1[3]+filter_adc_1[4]+filter_adc_1[5]+filter_adc_1[6]+filter_adc_1[7] ) / 8 );
-		ADC_vbat = ( ( filter_adc_2[0]+filter_adc_2[1]+filter_adc_2[2]+filter_adc_2[3]+filter_adc_2[4]+filter_adc_2[5]+filter_adc_2[6]+filter_adc_2[7] ) / 8 );
+        ADC_vbat = ( ( filter_adc_1[0]+filter_adc_1[1]+filter_adc_1[2]+filter_adc_1[3]+filter_adc_1[4]+filter_adc_1[5]+filter_adc_1[6]+filter_adc_1[7] ) / 8 );
+		ADC_vref = ( ( filter_adc_2[0]+filter_adc_2[1]+filter_adc_2[2]+filter_adc_2[3]+filter_adc_2[4]+filter_adc_2[5]+filter_adc_2[6]+filter_adc_2[7] ) / 8 );
 
 		// VDDA can be calculated based on the measured vref and the calibration data
 	    vdda = (float)VREFINT_CAL_VREF * (float)*VREFINT_CAL_ADDR / ADC_vref / 1000;
 
 	    // Knowing vdda and the resolution of adc - the actual voltage can be calculated
-	    vref = (float) vdda / 4095 * ADC_vref;
+	    vref = (float) vdda / 4095.0 * ADC_vref;
+	    vbat = (float) (vdda / 4095.0 * ADC_vbat)*3.0;
 
-	    // VDDA can be calculated based on the measured vref and the calibration data
-	    vbat = (float)VREFINT_CAL_VREF * (float)*VREFINT_CAL_ADDR / ADC_vbat / 1000;
-
-	    //temp_stm = (float) (ta * (float) (ADC_temp) + tb);
 		flt_flag = 0;
 	}
 }

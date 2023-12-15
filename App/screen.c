@@ -371,7 +371,7 @@ void screen_debug(void)
 	lv_obj_set_style_text_line_space(label_power, 1, 0);
 	lv_label_set_long_mode(label_power, LV_LABEL_LONG_WRAP);          	// Break the long lines
 	lv_label_set_recolor(label_power, true);                         	// Enable re-coloring by commands in the text
-	lv_label_set_text_fmt(label_power, "uC V:%0.2f  VR:%0.2f VB:%0.2f", vdda/1000.0f, vref/1000.0f, vbat);
+	lv_label_set_text_fmt(label_power, "uC V:%0.2f  VR:%0.2f VB:%0.2f", vdda/1000.0f, vref/1000.0f, vbat/1000.0f);
 	lv_obj_set_pos(label_power, 10, 206);
 
 	label_clock = lv_label_create(Tela_Debug);
@@ -404,7 +404,7 @@ void update_debug_screen(lv_timer_t * timer)
 	lv_label_set_text_fmt(label_sw_iron, "SW_IRON: %d PWM: %d", sw_iron, pwm_iron);
 	lv_label_set_text_fmt(label_sw_air , "SW_AIR : %d", sw_air);
 
-	lv_label_set_text_fmt(label_power, "uC V:%0.2f  VR:%0.2f VB:%0.2f", vdda/1000.0f, vref/1000.0f, vbat);
+	lv_label_set_text_fmt(label_power, "uC V:%0.2f  VR:%0.2f VB:%0.2f", vdda/1000.0f, vref/1000.0f, vbat/1000.0f);
 	lv_label_set_text_fmt(label_clock, "Time: %02d:%02d:%02d",RTC_Time.Hours,RTC_Time.Minutes,RTC_Time.Seconds);
 }
 
