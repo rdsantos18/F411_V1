@@ -214,14 +214,14 @@ int main(void)
   ILI9341_Fill_Screen(BLACK);
 
   // Teste LCD
-//  HAL_Delay(2000);
-//  ILI9341_Fill_Screen(RED);
-//  HAL_Delay(2000);
-//  ILI9341_Fill_Screen(GREEN);
-//  HAL_Delay(2000);
-//  ILI9341_Fill_Screen(BLUE);
-//  HAL_Delay(2000);
-//  ILI9341_Fill_Screen(BLACK);
+  HAL_Delay(1500);
+  ILI9341_Fill_Screen(RED);
+  HAL_Delay(1500);
+  ILI9341_Fill_Screen(GREEN);
+  HAL_Delay(1500);
+  ILI9341_Fill_Screen(BLUE);
+  HAL_Delay(1500);
+  ILI9341_Fill_Screen(BLACK);
 
   Evt_InitQueue();
   KeyboardInit(0x01);
