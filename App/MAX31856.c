@@ -7,7 +7,7 @@
 
 #include "max31856.h"
 
-#define MAX31856_SPI_TIMEOUT 200U
+#define MAX31856_SPI_TIMEOUT 300U
 
 void max31856_init(max31856_t *max31856)
 {
@@ -20,8 +20,8 @@ void max31856_init(max31856_t *max31856)
     max31856->cr0.val = max31856_read_register(max31856, MAX31856_CR0);
     max31856->cr1.val = max31856_read_register(max31856, MAX31856_CR1);
 
-    // Disable all faults
-    max31856->mask.val = 0xFF;
+    // Enable all faults
+    max31856->mask.val = 0;
     max31856_write_register(max31856, MAX31856_MASK, max31856->mask.val);
 }
 
