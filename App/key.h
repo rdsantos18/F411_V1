@@ -34,10 +34,10 @@ bool Evt_DeQueue(uint8_t *event);
 void Evt_InitQueue(void);
 
 #define DEBOUNCE_KEY			2
-#define KEY_DN					0
-#define	KEY_UP					1
-#define KEY_ENTER				2
-#define KEY_ESC					3
+
+#define KEY_BT_1				0
+#define KEY_BT_2				1
+#define KEY_BT_3				2
 
 /// PushButton_Routine timer period in msec
 #define PUSHBTN_TMR_PERIOD		50

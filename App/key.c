@@ -337,7 +337,7 @@ void KeyboardEvent(void)
 			case EVT_PBTN_INPUT:
 				state_encoder_button(event[1], event[2]);
 				if(event[2] == PBTN_SCLK) {
-					if(event[1] == 3) {
+					if(event[1] == KEY_BT_2) {
 						if(flag_screen == 1) {
 							flag_screen = 0;
 							load_screen(flag_screen);
