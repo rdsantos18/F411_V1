@@ -17,6 +17,9 @@
 #include <stdbool.h>
 #include "stm32f4xx_hal.h"
 
+#define   Cold_Junction_Resolution    0.015625
+#define   TC_Resolution               0.0078125
+
 /* Register addresses */
 #define MAX31856_CR0 0x00		// Default 00h
 #define MAX31856_CR1 0x01		// Default 03h

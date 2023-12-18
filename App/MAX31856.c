@@ -78,7 +78,7 @@ float max31856_read_TC_temp(max31856_t *max31856)
 
     // First 5 bits aren't unused
     raw_val_signed >>= 5;
-    return raw_val_signed * 0.0078125;
+    return raw_val_signed * TC_Resolution;
 }
 
 float max31856_read_CJ_temp(max31856_t *max31856)
