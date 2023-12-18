@@ -206,44 +206,31 @@ int main(void)
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 
-  sprintf(string_usb, "ILI9341 Init....\n\r\n\r");
-  LogDebug(string_usb);
-  
   ILI9341_Init();
   ILI9341_Set_Rotation(SCREEN_HORIZONTAL_1);
   ILI9341_Set_Address(0, 0, ILI9341_SCREEN_HEIGHT-1, ILI9341_SCREEN_WIDTH-1);
-
-  /*
-  // Teste LCD
-  HAL_Delay(1500);
-  ILI9341_Fill_Screen(RED);
-  HAL_Delay(1500);
-  ILI9341_Fill_Screen(GREEN);
-  HAL_Delay(1500);
-  ILI9341_Fill_Screen(BLUE);
-  HAL_Delay(1500);
-  ILI9341_Fill_Screen(BLACK);
-*/
 
   Evt_InitQueue();
   KeyboardInit(0x01);
 
   // ThermoCouple INIT
   max31856_init(&therm_iron);
-  //max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
-  //max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_DISABLED);
-  //max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
-  //max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
-  //max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
-  //max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
+  max31856_clear_fault_status(&therm_iron);
+  max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
+  max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_DISABLED);
+  max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
+  max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
+  max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
   //
   max31856_init(&therm_gun);
-  //max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
-  //max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_DISABLED);
-  //max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
-  //max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
-  //max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
-  //max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
+  max31856_clear_fault_status(&therm_gun);
+  max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
+  max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_DISABLED);
+  max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
+  max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
+  max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
 
   lv_init();
 
@@ -321,12 +308,12 @@ int main(void)
 	// Log Debug
 	if(HAL_GetTick() - timer_debug > 1000) {
 		timer_debug = HAL_GetTick();
-		sprintf(string_usb, "ENC1: %04ld [0] %ld ( %ld )  [1] %ld ( %ld ) PWM: %d TS: %0.2f TG: %0.2f \n\r",
-			    enc1_last, dimmer_value[0], dimmer_out[0],
-				dimmer_value[1], dimmer_out[1],
-				pwm_iron,
-				temp_iron, temp_gun );
-		LogDebug(string_usb);
+//		sprintf(string_usb, "ENC1: %04ld [0] %ld ( %ld )  [1] %ld ( %ld ) PWM: %d TS: %0.2f TG: %0.2f \n\r",
+//			    enc1_last, dimmer_value[0], dimmer_out[0],
+//				dimmer_value[1], dimmer_out[1],
+//				pwm_iron,
+//				temp_iron, temp_gun );
+//		LogDebug(string_usb);
 	}
 
 	//
