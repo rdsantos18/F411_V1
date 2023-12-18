@@ -4,7 +4,6 @@
  *  Created on: Aug 15, 2023
  *      Author: rinaldo.santos
  */
-
 #include "main.h"
 #include "spi.h"
 #include "tim.h"
@@ -14,6 +13,9 @@
 #include "screen.h"
 
 extern volatile uint32_t enc1_btn, enc2_btn, enc3_btn;
+extern float target_iron;
+extern volatile uint32_t enc1_last;
+extern uint8_t flag_power_iron;
 
 uint8_t flag_screen = 0;
 uint8_t flag_auto_iron = 0;
@@ -337,6 +339,9 @@ void KeyboardEvent(void)
 			case EVT_PBTN_INPUT:
 				state_encoder_button(event[1], event[2]);
 				if(event[2] == PBTN_SCLK) {
+					if(event[1] == KEY_BT_1) {
+						target_iron = (float)enc1_last * 1.0f;
+					}
 					if(event[1] == KEY_BT_2) {
 						if(flag_screen == 1) {
 							flag_screen = 0;
@@ -346,6 +351,12 @@ void KeyboardEvent(void)
 							flag_screen = 1;
 							load_screen(flag_screen);
 						}
+					}
+					if(event[1] == KEY_BT_3) {
+						if(flag_power_iron == 0)
+							flag_power_iron = 1;
+						else
+							flag_power_iron = 0;
 					}
 				}
 				else if(event[2] == PBTN_LCLK) {

@@ -38,6 +38,7 @@
 #include "../App/log_usb.h"
 #include "../lvgl/lvgl.h"
 #include "../App/screen.h"
+#include "../App/power_ctrl.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -325,6 +326,9 @@ int main(void)
 				temp_iron, temp_gun );
 		LogDebug(string_usb);
 	}
+
+	//
+	power_iron();
   }
   /* USER CODE END 3 */
 }

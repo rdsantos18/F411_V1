@@ -27,6 +27,7 @@ extern float vdda, vref, vbat;
 extern RTC_TimeTypeDef RTC_Time;
 extern uint32_t dimmer_Counter[];
 extern uint32_t dimmer_value[];
+extern uint8_t flag_power_iron;
 
 extern float temperature_K, temperature_air_K;
 
@@ -63,6 +64,7 @@ static lv_obj_t * label_temp_iron;
 static lv_obj_t * label_temp_air;
 static lv_obj_t * label_power;
 static lv_obj_t * label_clock;
+static lv_obj_t * label_automatico;
 static lv_timer_t * task_debug;
 
 void create_iron(void);
@@ -385,6 +387,17 @@ void screen_debug(void)
 	lv_label_set_text_fmt(label_clock, "Time: %02d:%02d:%02d",RTC_Time.Hours,RTC_Time.Minutes,RTC_Time.Seconds);
 	lv_obj_set_pos(label_clock, 10, 228);
 
+	label_automatico = lv_label_create(Tela_Debug);
+	lv_obj_set_style_text_font(label_automatico, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+	lv_obj_set_style_text_color(label_automatico, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+	lv_obj_set_style_text_opa(label_automatico, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+	lv_obj_set_style_text_letter_space(label_automatico, 1, 0);
+	lv_obj_set_style_text_line_space(label_automatico, 1, 0);
+	lv_label_set_long_mode(label_automatico, LV_LABEL_LONG_WRAP);          	// Break the long lines
+	lv_label_set_recolor(label_automatico, true);                         	// Enable re-coloring by commands in the text
+	lv_label_set_text_fmt(label_automatico, "Automatico: %d", flag_power_iron);
+	lv_obj_set_pos(label_automatico, 10, 250);
+
     static uint32_t user_data = 10;
     task_debug = lv_timer_create(update_debug_screen, 250,  &user_data);
 }
@@ -406,6 +419,8 @@ void update_debug_screen(lv_timer_t * timer)
 
 	lv_label_set_text_fmt(label_power, "uC V:%0.2f  VR:%0.2f VB:%0.2f", vdda, vref, vbat);
 	lv_label_set_text_fmt(label_clock, "Time: %02d:%02d:%02d",RTC_Time.Hours,RTC_Time.Minutes,RTC_Time.Seconds);
+
+	lv_label_set_text_fmt(label_automatico, "Automatico: %d", flag_power_iron);
 }
 
 void load_screen(uint8_t value)
