@@ -58,6 +58,14 @@
 #define SCREEN_VERTICAL_2			2
 #define SCREEN_HORIZONTAL_2			3
 
+#define TFT_MAD_MY  0x80
+#define TFT_MAD_MX  0x40
+#define TFT_MAD_MV  0x20
+#define TFT_MAD_ML  0x10
+#define TFT_MAD_RGB 0x00
+#define TFT_MAD_BGR 0x08
+#define TFT_MAD_MH  0x04
+
 void ILI9341_SPI_Init(void);
 void ILI9341_SPI_Send(unsigned char SPI_Data);
 void ILI9341_Write_Command(uint8_t Command);
@@ -71,7 +79,6 @@ void ILI9341_Fill_Screen(uint16_t Colour);
 void ILI9341_Draw_Colour(uint16_t Colour);
 void ILI9341_Draw_Pixel(uint16_t X,uint16_t Y,uint16_t Colour);
 void ILI9341_Draw_Colour_Burst(uint16_t Colour, uint32_t Size);
-
 
 void ILI9341_Draw_Rectangle(uint16_t X, uint16_t Y, uint16_t Width, uint16_t Height, uint16_t Colour);
 void ILI9341_Draw_Horizontal_Line(uint16_t X, uint16_t Y, uint16_t Width, uint16_t Colour);

@@ -88,22 +88,23 @@ void ILI9341_Set_Rotation(uint8_t Rotation)
 	switch(screen_rotation)
 	{
 		case SCREEN_VERTICAL_1:
-			ILI9341_Write_Data(0x40|0x08);
+			ILI9341_Write_Data(TFT_MAD_MX|TFT_MAD_RGB);
 			LCD_WIDTH = 240;
 			LCD_HEIGHT = 320;
 			break;
 		case SCREEN_HORIZONTAL_1:
-			ILI9341_Write_Data(0x20|0x08);
+			//ILI9341_Write_Data(TFT_MAD_MV|TFT_MAD_RGB);
+			ILI9341_Write_Data(TFT_MAD_MY|TFT_MAD_RGB);
 			LCD_WIDTH  = 320;
 			LCD_HEIGHT = 240;
 			break;
 		case SCREEN_VERTICAL_2:
-			ILI9341_Write_Data(0x80|0x08);
+			ILI9341_Write_Data(TFT_MAD_MY|TFT_MAD_RGB);
 			LCD_WIDTH  = 240;
 			LCD_HEIGHT = 320;
 			break;
 		case SCREEN_HORIZONTAL_2:
-			ILI9341_Write_Data(0x40|0x80|0x20|0x08);
+			ILI9341_Write_Data(TFT_MAD_MY|TFT_MAD_MX|TFT_MAD_MV|TFT_MAD_RGB);
 			LCD_WIDTH  = 320;
 			LCD_HEIGHT = 240;
 			break;
@@ -253,7 +254,7 @@ void ILI9341_Init(void)
 	ILI9341_Write_Command(0x29);
 
 	//STARTING ROTATION
-	ILI9341_Set_Rotation(SCREEN_VERTICAL_1);
+	ILI9341_Set_Rotation(SCREEN_HORIZONTAL_1);
 }
 
 //INTERNAL FUNCTION OF LIBRARY, USAGE NOT RECOMENDED, USE Draw_Pixel INSTEAD
@@ -319,7 +320,7 @@ void ILI9341_Draw_Colour_Burst(uint16_t Colour, uint32_t Size)
 /*Sets address (entire screen) and Sends Height*Width ammount of colour information to LCD*/
 void ILI9341_Fill_Screen(uint16_t Colour)
 {
-	ILI9341_Set_Address(0,0,LCD_WIDTH,LCD_HEIGHT);
+	ILI9341_Set_Address(0, 0, LCD_WIDTH, LCD_HEIGHT);
 	ILI9341_Draw_Colour_Burst(Colour, LCD_WIDTH*LCD_HEIGHT);
 }
 

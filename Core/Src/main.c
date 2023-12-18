@@ -185,7 +185,7 @@ int main(void)
   // PWM
   pwm_iron = 80;
   HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1);
-  __HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, pwm_iron);	// PWM_CH1 = 4095 IRON
+  __HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, pwm_iron);	// PWM_CH1 = 80 IRON
 
   // Start ADC
   idx_flt = 0;
@@ -204,14 +204,14 @@ int main(void)
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 
-  HAL_Delay(100);
   sprintf(string_usb, "ILI9341 Init....\n\r\n\r");
   LogDebug(string_usb);
   
   ILI9341_Init();
-  ILI9341_Set_Address(0, 0, ILI9341_SCREEN_WIDTH-1, ILI9341_SCREEN_HEIGHT-1);
-  ILI9341_Set_Rotation(1);
-  ILI9341_Fill_Screen(BLACK);
+  ILI9341_Set_Rotation(SCREEN_HORIZONTAL_1);
+  //ILI9341_Set_Address(0, 0, ILI9341_SCREEN_WIDTH-1, ILI9341_SCREEN_HEIGHT-1);
+  ILI9341_Set_Address(0, 0, ILI9341_SCREEN_HEIGHT-1, ILI9341_SCREEN_WIDTH-1);
+  //ILI9341_Fill_Screen(BLACK);
 
   // Teste LCD
   HAL_Delay(1500);
@@ -270,7 +270,8 @@ int main(void)
 	// Update Value Dimmer
 	dimmer_value[0] = enc1_last / 10;
 	dimmer_value[1] = enc2_last / 10;
-	pwm_iron = (uint16_t)enc3_last * 4;
+	pwm_iron = (uint16_t)enc1_last * 4;
+	__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, pwm_iron);
 
 	// Buttons Encoders
 	KeyboardEvent();
