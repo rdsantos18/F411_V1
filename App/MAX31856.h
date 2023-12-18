@@ -18,18 +18,18 @@
 #include "stm32f4xx_hal.h"
 
 /* Register addresses */
-#define MAX31856_CR0 0x00
-#define MAX31856_CR1 0x01
-#define MAX31856_MASK 0x02
-#define MAX31856_CJHF 0x03   // Default 7Fh
-#define MAX31856_CJLF 0x04   // Default C0h
-#define MAX31856_LTHFTH 0x05 // Default 7Fh
-#define MAX31856_LTHFTL 0x06 // Default FFh
-#define MAX31856_LTLFTH 0x07 // Default 80h
-#define MAX31856_LTLFTL 0x08 // Default 00h
-#define MAX31856_CJTO 0x09   // Default 00h
-#define MAX31856_CJTH 0x0A   // Default 00h
-#define MAX31856_CJTL 0x0B   // Default 00h
+#define MAX31856_CR0 0x00		// Default 00h
+#define MAX31856_CR1 0x01		// Default 03h
+#define MAX31856_MASK 0x02		// Default FFh
+#define MAX31856_CJHF 0x03   	// Default 7Fh
+#define MAX31856_CJLF 0x04   	// Default C0h
+#define MAX31856_LTHFTH 0x05 	// Default 7Fh
+#define MAX31856_LTHFTL 0x06 	// Default FFh
+#define MAX31856_LTLFTH 0x07 	// Default 80h
+#define MAX31856_LTLFTL 0x08 	// Default 00h
+#define MAX31856_CJTO 0x09   	// Default 00h
+#define MAX31856_CJTH 0x0A   	// Default 00h
+#define MAX31856_CJTL 0x0B   	// Default 00h
 #define MAX31856_LTCBH 0x0C
 #define MAX31856_LTCBM 0x0D
 #define MAX31856_LTCBL 0x0E
