@@ -30,6 +30,7 @@
 /* USER CODE BEGIN Includes */
 #include "string.h"
 #include "stdio.h"
+#include "math.h"
 #include "../App/key.h"
 #include "../App/ILI9341.h"
 #include "../App/MAX31856.h"
@@ -209,10 +210,9 @@ int main(void)
   
   ILI9341_Init();
   ILI9341_Set_Rotation(SCREEN_HORIZONTAL_1);
-  //ILI9341_Set_Address(0, 0, ILI9341_SCREEN_WIDTH-1, ILI9341_SCREEN_HEIGHT-1);
   ILI9341_Set_Address(0, 0, ILI9341_SCREEN_HEIGHT-1, ILI9341_SCREEN_WIDTH-1);
-  //ILI9341_Fill_Screen(BLACK);
 
+  /*
   // Teste LCD
   HAL_Delay(1500);
   ILI9341_Fill_Screen(RED);
@@ -222,9 +222,27 @@ int main(void)
   ILI9341_Fill_Screen(BLUE);
   HAL_Delay(1500);
   ILI9341_Fill_Screen(BLACK);
+*/
 
   Evt_InitQueue();
   KeyboardInit(0x01);
+
+  // ThermoCouple INIT
+  max31856_init(&therm_iron);
+  max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
+  max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_DISABLED);
+  max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
+  max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
+  max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
+  //
+  max31856_init(&therm_gun);
+  max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
+  max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_DISABLED);
+  max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
+  max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
+  max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
 
   lv_init();
 
@@ -286,14 +304,14 @@ int main(void)
 			temp_iron = max31856_read_TC_temp(&therm_iron);
 		}
 		else {
-			temp_iron = 999.99f;
+			temp_iron = NAN;
 		}
 		max31856_read_fault(&therm_gun);
 		if (!therm_gun.sr.val) {
 			temp_gun = max31856_read_TC_temp(&therm_gun);
 		}
 		else {
-			temp_gun = 999.99f;
+			temp_gun = NAN;
 		}
 	}
 
