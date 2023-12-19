@@ -441,7 +441,7 @@ void debounce_input(void)
 	}
 	//
 	// Debounce SW_IRON PIN
-	pin_sw_iron = HAL_GPIO_ReadPin(SW_AIR_GPIO_Port, SW_AIR_Pin);
+	pin_sw_iron = HAL_GPIO_ReadPin(SW_IRON_GPIO_Port, SW_IRON_Pin);
 	if(pin_sw_iron == 0) {
 		sw_iron_low++;
 		sw_iron_high = 0;
