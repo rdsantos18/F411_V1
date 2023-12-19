@@ -9,6 +9,8 @@
 
 #define MAX31856_SPI_TIMEOUT 300U
 
+uint8_t raw_val[4] = { 0 };
+
 void max31856_init(max31856_t *max31856)
 {
     /*
@@ -72,8 +74,6 @@ void max31856_set_average_samples(max31856_t *max31856, max31856_sampling_t samp
 
 float max31856_read_TC_temp(max31856_t *max31856)
 {
-    uint8_t raw_val[3] = { 0 };
-
     max31856_read_nregisters(max31856, MAX31856_LTCBH, raw_val, 3);
     int32_t raw_val_signed = (raw_val[0] << 16) | (raw_val[1] << 8) | raw_val[0];
     // and compute temperature
@@ -88,8 +88,6 @@ float max31856_read_TC_temp(max31856_t *max31856)
 
 float max31856_read_CJ_temp(max31856_t *max31856)
 {
-    uint8_t raw_val[2] = { 0 };
-
     max31856_read_nregisters(max31856, MAX31856_CJTH, raw_val, 2);
     int16_t raw_val_signed = (raw_val[0] << 8) | raw_val[1];
 
