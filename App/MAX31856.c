@@ -76,6 +76,10 @@ float max31856_read_TC_temp(max31856_t *max31856)
 
     max31856_read_nregisters(max31856, MAX31856_LTCBH, raw_val, 3);
     int32_t raw_val_signed = (raw_val[0] << 16) | (raw_val[1] << 8) | raw_val[0];
+    // and compute temperature
+    if (raw_val_signed & 0x800000) {
+    	raw_val_signed |= 0xFF000000; // fix sign
+    }
 
     // First 5 bits aren't unused
     raw_val_signed >>= 5;
