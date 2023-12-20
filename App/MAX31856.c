@@ -10,6 +10,7 @@
 #define MAX31856_SPI_TIMEOUT 300U
 
 uint8_t raw_val[4] = { 0 };
+int32_t raw_val_signed = 0;
 
 void max31856_init(max31856_t *max31856)
 {
@@ -23,7 +24,7 @@ void max31856_init(max31856_t *max31856)
     max31856->cr1.val = max31856_read_register(max31856, MAX31856_CR1);
 
     // Enable all faults
-    max31856->mask.val = 0;
+    max31856->mask.val = 0xFF;
     max31856_write_register(max31856, MAX31856_MASK, max31856->mask.val);
 }
 
@@ -75,7 +76,7 @@ void max31856_set_average_samples(max31856_t *max31856, max31856_sampling_t samp
 float max31856_read_TC_temp(max31856_t *max31856)
 {
     max31856_read_nregisters(max31856, MAX31856_LTCBH, raw_val, 3);
-    int32_t raw_val_signed = (raw_val[0] << 16) | (raw_val[1] << 8) | raw_val[0];
+    raw_val_signed = (raw_val[0] << 24) | (raw_val[1] << 16) | raw_val[2];
     // and compute temperature
     if (raw_val_signed & 0x800000) {
     	raw_val_signed |= 0xFF000000; // fix sign

@@ -130,6 +130,26 @@ typedef struct {
 	uint32_t val;
 	uint32_t dir;
 } encoder;
+
+typedef struct {
+	uint8_t CR0;
+	uint8_t CR1;
+	uint8_t MASK;
+	uint8_t CJHF;
+	uint8_t CJLF;
+	uint8_t LTHFTH;
+	uint8_t LTHFTL;
+	uint8_t LTLFTH;
+	uint8_t LTLFTL;
+	uint8_t CJTO;
+	uint8_t CJTH;
+	uint8_t CJTL;
+	uint8_t LTCBH;
+	uint8_t LTCBM;
+	uint8_t LTCBL;
+	uint8_t SR;
+} max_data;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

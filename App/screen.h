@@ -14,4 +14,6 @@ void delete_screen_main(void);
 void delete_screen_debug(void);
 void load_screen(uint8_t value);
 
+void screen_max31856(void);
+
 #endif /* SCREEN_H_ */
