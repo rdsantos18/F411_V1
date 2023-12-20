@@ -66,7 +66,8 @@ encoder rot2;
 encoder rot3;
 RTC_TimeTypeDef RTC_Time = {0};
 RTC_DateTypeDef RTC_Date = {0};
-
+max_data max_dbg_i;
+max_data max_dbg_g;
 
 GPIO_PinState pin_sw_air;
 uint8_t sw_air_low = 0;
@@ -215,22 +216,70 @@ int main(void)
 
   // ThermoCouple INIT
   max31856_init(&therm_iron);
-  max31856_clear_fault_status(&therm_iron);
-  max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
-  max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_DISABLED);
-  max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
-  max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
-  max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
-  max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
+  //max31856_clear_fault_status(&therm_iron);
+  //max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
+  //max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_DISABLED);
+  //max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
+  //max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
+  //max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  //max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
+  //
+  max_dbg_i.CR0 = max31856_read_register(&therm_iron, MAX31856_CR0);
+  max_dbg_i.CR1 = max31856_read_register(&therm_iron, MAX31856_CR1);
+  max_dbg_i.MASK = max31856_read_register(&therm_iron, MAX31856_MASK);
+
+  max_dbg_i.CJHF = max31856_read_register(&therm_iron, MAX31856_CJHF);
+  max_dbg_i.CJLF = max31856_read_register(&therm_iron, MAX31856_CJLF);
+
+  max_dbg_i.LTHFTH = max31856_read_register(&therm_iron, MAX31856_LTHFTH);
+  max_dbg_i.LTHFTL = max31856_read_register(&therm_iron, MAX31856_LTHFTL);
+
+  max_dbg_i.LTLFTH = max31856_read_register(&therm_iron, MAX31856_LTLFTH);
+  max_dbg_i.LTLFTL = max31856_read_register(&therm_iron, MAX31856_LTLFTL);
+
+  max_dbg_i.CJTO = max31856_read_register(&therm_iron, MAX31856_CJTO);
+  max_dbg_i.CJTH = max31856_read_register(&therm_iron, MAX31856_CJTH);
+  max_dbg_i.CJTL = max31856_read_register(&therm_iron, MAX31856_CJTL);
+
+  max_dbg_i.LTCBH = max31856_read_register(&therm_iron, MAX31856_LTCBH);
+  max_dbg_i.LTCBM = max31856_read_register(&therm_iron, MAX31856_LTCBM);
+  max_dbg_i.LTCBL = max31856_read_register(&therm_iron, MAX31856_LTCBL);
+
+  max_dbg_i.SR = max31856_read_register(&therm_iron, MAX31856_SR);
+
+
   //
   max31856_init(&therm_gun);
-  max31856_clear_fault_status(&therm_gun);
-  max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
-  max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_DISABLED);
-  max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
-  max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
-  max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
-  max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
+ // max31856_clear_fault_status(&therm_gun);
+ // max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
+ // max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_DISABLED);
+ // max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
+ // max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
+ // max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+ // max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
+
+  max_dbg_g.CR0 = max31856_read_register(&therm_gun, MAX31856_CR0);
+  max_dbg_g.CR1 = max31856_read_register(&therm_gun, MAX31856_CR1);
+  max_dbg_g.MASK = max31856_read_register(&therm_gun, MAX31856_MASK);
+
+  max_dbg_g.CJHF = max31856_read_register(&therm_gun, MAX31856_CJHF);
+  max_dbg_g.CJLF = max31856_read_register(&therm_gun, MAX31856_CJLF);
+
+  max_dbg_g.LTHFTH = max31856_read_register(&therm_gun, MAX31856_LTHFTH);
+  max_dbg_g.LTHFTL = max31856_read_register(&therm_gun, MAX31856_LTHFTL);
+
+  max_dbg_g.LTLFTH = max31856_read_register(&therm_gun, MAX31856_LTLFTH);
+  max_dbg_g.LTLFTL = max31856_read_register(&therm_gun, MAX31856_LTLFTL);
+
+  max_dbg_g.CJTO = max31856_read_register(&therm_gun, MAX31856_CJTO);
+  max_dbg_g.CJTH = max31856_read_register(&therm_gun, MAX31856_CJTH);
+  max_dbg_g.CJTL = max31856_read_register(&therm_gun, MAX31856_CJTL);
+
+  max_dbg_g.LTCBH = max31856_read_register(&therm_gun, MAX31856_LTCBH);
+  max_dbg_g.LTCBM = max31856_read_register(&therm_gun, MAX31856_LTCBM);
+  max_dbg_g.LTCBL = max31856_read_register(&therm_gun, MAX31856_LTCBL);
+
+  max_dbg_g.SR = max31856_read_register(&therm_gun, MAX31856_SR);
 
   lv_init();
 

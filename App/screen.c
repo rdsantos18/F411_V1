@@ -67,6 +67,10 @@ static lv_obj_t * label_clock;
 static lv_obj_t * label_automatico;
 static lv_timer_t * task_debug;
 
+// Tela Debug MAX31856
+static lv_obj_t * Tela_MAX;
+static lv_timer_t * task_MAX;
+
 void create_iron(void);
 void create_air(void);
 void update_yaxun_screen(lv_timer_t * timer);
@@ -445,4 +449,20 @@ void delete_screen_debug(void)
 	lv_timer_del(task_debug);
 	lv_obj_del(Tela_Debug);
 	screen_main();
+}
+
+void update_MAX_screen(lv_timer_t * timer)
+{
+
+}
+
+void screen_max31856(void)
+{
+	Tela_MAX = lv_obj_create(NULL);
+	lv_obj_clear_flag(Tela_MAX, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_style_bg_color(Tela_MAX, lv_color_hex(0x0000FF), 0);
+	lv_obj_set_style_bg_grad_color(Tela_MAX, lv_color_hex(0x0000FF), 0);
+
+    static uint32_t user_data = 10;
+    task_MAX = lv_timer_create(update_MAX_screen, 200,  &user_data);
 }
