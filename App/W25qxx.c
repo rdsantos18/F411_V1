@@ -6,6 +6,7 @@
  * @attention
  *
  * Copyright (c) 2022, 2023 Lars Boegild Thomsen <lbthomsen@gmail.com>
+ * https://github.com/lbthomsen/stm32-w25qxx
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
