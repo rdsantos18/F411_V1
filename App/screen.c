@@ -409,7 +409,7 @@ void screen_debug(void)
 void update_debug_screen(lv_timer_t * timer)
 {
 	lv_label_set_text_fmt(adc_iron, "D0: %ld - %ld", dimmer_value[0], dimmer_Counter[0] );
-	lv_label_set_text_fmt(adc_air , "D1: %ld - %ld", dimmer_value[1], dimmer_Counter[1] );
+	lv_label_set_text_fmt(adc_air,  "D1: %ld - %ld", dimmer_value[1], dimmer_Counter[1] );
 
 	lv_label_set_text_fmt(label_temp_iron, "IRON: %0.4f° / %0.4f°", temp_iron, temp_cj_iron);
 	lv_label_set_text_fmt(label_temp_air , "AIR : %0.4f° / %0.4f°", temp_gun, temp_cj_gun);
