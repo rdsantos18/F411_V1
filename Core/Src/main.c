@@ -92,6 +92,8 @@ uint32_t timer_lcd = 0, timer_debug = 0, timer_therm = 0;
 
 float temp_iron = 0.0f;
 float temp_gun  = 0.0f;
+float temp_cj_iron = 0.0f;
+float temp_cj_gun = 0.0f;
 float target_iron, target_air;
 uint32_t target_speed = 0;
 
@@ -339,6 +341,7 @@ int main(void)
 		max31856_read_fault(&therm_iron);
 		if (!therm_iron.sr.val) {
 			temp_iron = max31856_read_TC_temp(&therm_iron);
+			temp_cj_iron = max31856_read_CJ_temp(&therm_iron);
 		}
 		else {
 			temp_iron = NAN;
@@ -347,6 +350,7 @@ int main(void)
 		max31856_read_fault(&therm_gun);
 		if (!therm_gun.sr.val) {
 			temp_gun = max31856_read_TC_temp(&therm_gun);
+			temp_cj_gun = max31856_read_CJ_temp(&therm_gun);
 		}
 		else {
 			temp_gun = NAN;

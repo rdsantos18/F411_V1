@@ -20,7 +20,7 @@ extern volatile uint32_t enc3_cnt, enc3_dir, enc3_btn, enc3_last;
 extern volatile uint16_t enc1_val, enc2_val, enc3_val;
 extern volatile uint8_t sw_air, sw_iron;
 extern uint32_t target_speed;
-extern float temp_iron, temp_gun;
+extern float temp_iron, temp_gun, temp_cj_iron, temp_cj_gun;
 extern float target_iron, target_air;
 extern uint16_t pwm_iron;
 extern float vdda, vref, vbat;
@@ -333,7 +333,7 @@ void screen_debug(void)
     lv_obj_set_style_text_line_space(label_temp_iron, 1, 0);
     lv_label_set_long_mode(label_temp_iron, LV_LABEL_LONG_WRAP);          	// Break the long lines
     lv_label_set_recolor(label_temp_iron, true);                         	// Enable re-coloring by commands in the text
-	lv_label_set_text_fmt(label_temp_iron, "IRON: %0.4f °C", temp_iron);
+	lv_label_set_text_fmt(label_temp_iron, "IRON: %0.4f° / %0.4f°", temp_iron, temp_cj_iron);
 	lv_obj_set_pos(label_temp_iron, 10, 118);
 
 	label_temp_air = lv_label_create(Tela_Debug);
@@ -344,7 +344,7 @@ void screen_debug(void)
 	lv_obj_set_style_text_line_space(label_temp_air, 1, 0);
 	lv_label_set_long_mode(label_temp_air, LV_LABEL_LONG_WRAP);          	// Break the long lines
 	lv_label_set_recolor(label_temp_air, true);                         	// Enable re-coloring by commands in the text
-    lv_label_set_text_fmt(label_temp_air, "AIR: %0.4f °C", temp_gun);
+    lv_label_set_text_fmt(label_temp_air, "AIR: %0.4f° / %0.4f°", temp_gun, temp_cj_gun);
 	lv_obj_set_pos(label_temp_air, 10, 140);
 
 	label_sw_iron = lv_label_create(Tela_Debug);
@@ -411,8 +411,8 @@ void update_debug_screen(lv_timer_t * timer)
 	lv_label_set_text_fmt(adc_iron, "D0: %ld - %ld", dimmer_value[0], dimmer_Counter[0] );
 	lv_label_set_text_fmt(adc_air , "D1: %ld - %ld", dimmer_value[1], dimmer_Counter[1] );
 
-	lv_label_set_text_fmt(label_temp_iron, "IRON: %0.4f °C", temp_iron);
-	lv_label_set_text_fmt(label_temp_air , "AIR : %0.4f °C", temp_gun);
+	lv_label_set_text_fmt(label_temp_iron, "IRON: %0.4f° / %0.4f°", temp_iron, temp_cj_iron);
+	lv_label_set_text_fmt(label_temp_air , "AIR : %0.4f° / %0.4f°", temp_gun, temp_cj_gun);
 
 	lv_label_set_text_fmt(enc_1, "E1 - %ld  D: %ld B: %ld V: %ld", enc1_cnt, enc1_dir, enc1_btn, enc1_last);
 	lv_label_set_text_fmt(enc_2, "E2 - %ld  D: %ld B: %ld V: %ld", enc2_cnt, enc2_dir, enc2_btn, enc2_last);
