@@ -1,1035 +1,372 @@
-/*
- * W25qxx.c
+/**
+ ******************************************************************************
+ * @file           : w25qxx.h
+ * @brief          : Minimal W25Qxx Library Source
+ ******************************************************************************
+ * @attention
  *
- *  Created on: Aug 16, 2023
- *      Author: rinaldo.santos
+ * Copyright (c) 2022, 2023 Lars Boegild Thomsen <lbthomsen@gmail.com>
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ * Notice!  The library does _not_ bother to check that sectors have been erased
+ * before writing.
+ *
+ ******************************************************************************
  */
 
-#if (_W25QXX_DEBUG==1)
+#include "main.h"
+#include "w25qxx.h"
+#include <string.h>
+
+#ifdef DEBUG
 #include <stdio.h>
 #endif
-#include <../App/W25qxx.h>
-#include "usbd_cdc_if.h"
 
-#define W25QXX_DUMMY_BYTE         0xA5
+/*
+ * Internal functions
+ */
 
-w25qxx_t	w25qxx;
+extern W25QXX_HandleTypeDef w25qxx; // Handler for all w25qxx operations!
+extern uint16_t EepromID, prg_rev;
+extern float target_iron, target_air;
+extern uint32_t target_speed;
 
-#if (_W25QXX_USE_FREERTOS==1)
-#define	W25qxx_Delay(delay)		osDelay(delay)
-#include "cmsis_os.h"
+/**
+ * @brief  Enables CS (driving it low) of the W25Qxx
+ *
+ * @param  W25Qxx handle
+ * @retval None
+ */
+static inline void cs_on(W25QXX_HandleTypeDef *w25qxx) {
+    HAL_GPIO_WritePin(w25qxx->cs_port, w25qxx->cs_pin, GPIO_PIN_RESET);
+}
+
+/**
+ * @brief  Disables CS (driving it high) of the W25Qxx
+ *
+ * @param  W25Qxx handle
+ * @retval None
+ */
+static inline void cs_off(W25QXX_HandleTypeDef *w25qxx) {
+    HAL_GPIO_WritePin(w25qxx->cs_port, w25qxx->cs_pin, GPIO_PIN_SET);
+}
+
+/**
+ * @brief  Transmit data to w25qxx - ignore returned data
+ *
+ * @param  W25Qxx handle
+ * @param  Pointer to buffer with data to transmit
+ * @param  Length (in bytes) of data to be transmitted
+ * @retval None
+ */
+W25QXX_result_t w25qxx_transmit(W25QXX_HandleTypeDef *w25qxx, uint8_t *buf, uint32_t len) {
+    W25QXX_result_t ret = W25QXX_Err;
+    if (HAL_SPI_Transmit(w25qxx->spiHandle, buf, len, HAL_MAX_DELAY) == HAL_OK) {
+        ret = W25QXX_Ok;
+    }
+    return ret;
+}
+
+/*
+ * Receive data from w25qxx
+ */
+W25QXX_result_t w25qxx_receive(W25QXX_HandleTypeDef *w25qxx, uint8_t *buf, uint32_t len) {
+    W25QXX_result_t ret = W25QXX_Err;
+    if (HAL_SPI_Receive(w25qxx->spiHandle, buf, len, HAL_MAX_DELAY) == HAL_OK) {
+        ret = W25QXX_Ok;
+    }
+    return ret;
+}
+
+uint32_t w25qxx_read_id(W25QXX_HandleTypeDef *w25qxx) {
+    uint32_t ret = 0;
+    uint8_t buf[3];
+    cs_on(w25qxx);
+    buf[0] = W25QXX_GET_ID;
+    if (w25qxx_transmit(w25qxx, buf, 1) == W25QXX_Ok) {
+        if (w25qxx_receive(w25qxx, buf, 3) == W25QXX_Ok) {
+            ret = (uint32_t) ((buf[0] << 16) | (buf[1] << 8) | (buf[2]));
+        }
+    }
+    cs_off(w25qxx);
+    return ret;
+}
+
+uint8_t w25qxx_get_status(W25QXX_HandleTypeDef *w25qxx) {
+    uint8_t ret = 0;
+    uint8_t buf = W25QXX_READ_REGISTER_1;
+    cs_on(w25qxx);
+    if (w25qxx_transmit(w25qxx, &buf, 1) == W25QXX_Ok) {
+        if (w25qxx_receive(w25qxx, &buf, 1) == W25QXX_Ok) {
+            ret = buf;
+        }
+    }
+    cs_off(w25qxx);
+    return ret;
+}
+
+W25QXX_result_t w25qxx_write_enable(W25QXX_HandleTypeDef *w25qxx) {
+    W25_DBG("w25qxx_write_enable");
+    W25QXX_result_t ret = W25QXX_Err;
+    uint8_t buf[1];
+    cs_on(w25qxx);
+    buf[0] = W25QXX_WRITE_ENABLE;
+    if (w25qxx_transmit(w25qxx, buf, 1) == W25QXX_Ok) {
+        ret = W25QXX_Ok;
+    }
+    cs_off(w25qxx);
+    return ret;
+}
+
+W25QXX_result_t w25qxx_wait_for_ready(W25QXX_HandleTypeDef *w25qxx, uint32_t timeout) {
+    W25QXX_result_t ret = W25QXX_Ok;
+    uint32_t begin = HAL_GetTick();
+    uint32_t now = HAL_GetTick();
+    while ((now - begin <= timeout) && (w25qxx_get_status(w25qxx) && 0x01 == 0x01)) {
+        now = HAL_GetTick();
+    }
+    if (now - begin == timeout)
+        ret = W25QXX_Timeout;
+    return ret;
+}
+
+#ifdef W25QXX_QSPI
+W25QXX_result_t w25qxx_init(W25QXX_HandleTypeDef *w25qxx, QSPI_HandleTypeDef *qhspi) {
+
+}
 #else
-#define	W25qxx_Delay(delay)		HAL_Delay(delay)
+W25QXX_result_t w25qxx_init(W25QXX_HandleTypeDef *w25qxx, SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin) {
+
+    W25QXX_result_t result = W25QXX_Ok;
+
+    W25_DBG("w25qxx_init");
+
+    w25qxx->spiHandle = hspi;
+    w25qxx->cs_port = cs_port;
+    w25qxx->cs_pin = cs_pin;
+
+    cs_off(w25qxx);
+
+    uint32_t id = w25qxx_read_id(w25qxx);
+    if (id) {
+        w25qxx->manufacturer_id = (uint8_t) (id >> 16);
+        w25qxx->device_id = (uint16_t) (id & 0xFFFF);
+
+        switch (w25qxx->manufacturer_id) {
+        case W25QXX_MANUFACTURER_GIGADEVICE:
+
+            w25qxx->block_size = 0x10000;
+            w25qxx->sector_size = 0x1000;
+            w25qxx->sectors_in_block = 0x10;
+            w25qxx->page_size = 0x100;
+            w25qxx->pages_in_sector = 0x10;
+
+            switch (w25qxx->device_id) {
+            case 0x6017:
+                w25qxx->block_count = 0x80;
+                break;
+            default:
+                W25_DBG("Unknown Giga Device device");
+                result = W25QXX_Err;
+            }
+
+            break;
+        case W25QXX_MANUFACTURER_WINBOND:
+
+            w25qxx->block_size = 0x10000;
+            w25qxx->sector_size = 0x1000;
+            w25qxx->sectors_in_block = 0x10;
+            w25qxx->page_size = 0x100;
+            w25qxx->pages_in_sector = 0x10;
+
+            switch (w25qxx->device_id) {
+            case 0x4018:
+                w25qxx->block_count = 0x100;
+                break;
+            default:
+                W25_DBG("Unknown Winbond device");
+                result = W25QXX_Err;
+            }
+
+            break;
+        default:
+            W25_DBG("Unknown manufacturer");
+            result = W25QXX_Err;
+        }
+    } else {
+        result = W25QXX_Err;
+    }
+
+    if (result == W25QXX_Err) {
+        // Zero the handle so it is clear initialization failed!
+        memset(w25qxx, 0, sizeof(W25QXX_HandleTypeDef));
+    }
+
+    return result;
+
+}
 #endif
 
-volatile uint8_t rx_complete_SPI = 0;
-uint32_t debug_spi  = 0;
-uint32_t cont_spi = 0;
-__IO uint32_t wTransferState = TRANSFER_WAIT;
+W25QXX_result_t w25qxx_read(W25QXX_HandleTypeDef *w25qxx, uint32_t address, uint8_t *buf, uint32_t len) {
 
-//###################################################################################################################
-uint8_t	W25qxx_Spi(uint8_t	Data)
-{
-	uint8_t	ret;
-	HAL_SPI_TransmitReceive(&_W25QXX_SPI,&Data,&ret,1,10);
-	return ret;
+    W25_DBG("w25qxx_read - address: 0x%08lx, lengh: 0x%04lx", address, len);
+
+    // Transmit buffer holding command and address
+    uint8_t tx[4] = {
+    W25QXX_READ_DATA, (uint8_t) (address >> 16), (uint8_t) (address >> 8), (uint8_t) (address), };
+
+    // First wait for device to get ready
+    if (w25qxx_wait_for_ready(w25qxx, HAL_MAX_DELAY) != W25QXX_Ok) {
+        return W25QXX_Err;
+    }
+
+    cs_on(w25qxx);
+    if (w25qxx_transmit(w25qxx, tx, 4) == W25QXX_Ok) { // size will always be fixed
+        if (w25qxx_receive(w25qxx, buf, len) != W25QXX_Ok) {
+            cs_off(w25qxx);
+            return W25QXX_Err;
+        }
+    }
+    cs_off(w25qxx);
+
+    return W25QXX_Ok;
 }
 
-//###################################################################################################################
-uint32_t W25qxx_ReadID(void)
-{
-	uint32_t Temp = 0, Temp0 = 0, Temp1 = 0, Temp2 = 0;
+W25QXX_result_t w25qxx_write(W25QXX_HandleTypeDef *w25qxx, uint32_t address, uint8_t *buf, uint32_t len) {
 
-	W25qxx_Spi(0x9F);
-	Temp0 = W25qxx_Spi(W25QXX_DUMMY_BYTE);
-	Temp1 = W25qxx_Spi(W25QXX_DUMMY_BYTE);
-	Temp2 = W25qxx_Spi(W25QXX_DUMMY_BYTE);
-	Temp = (Temp0 << 16) | (Temp1 << 8) | Temp2;
-	return Temp;
+    W25_DBG("w25qxx_write - address 0x%08lx len 0x%04lx", address, len);
+
+    // Let's determine the pages
+    uint32_t first_page = address / w25qxx->page_size;
+    uint32_t last_page = (address + len - 1) / w25qxx->page_size;
+
+    W25_DBG("w25qxx_write %lu pages from %lu to %lu", 1 + last_page - first_page, first_page, last_page);
+
+    uint32_t buffer_offset = 0;
+    uint32_t start_address = address;
+
+    for (uint32_t page = first_page; page <= last_page; ++page) {
+
+        uint32_t write_len = w25qxx->page_size - (start_address & (w25qxx->page_size - 1));
+        write_len = len > write_len ? write_len : len;
+
+        W25_DBG("w25qxx_write: handling page %lu start_address = 0x%08lx buffer_offset = 0x%08lx len = %04lx", page, start_address, buffer_offset, write_len);
+
+        // First wait for device to get ready
+        if (w25qxx_wait_for_ready(w25qxx, HAL_MAX_DELAY) != W25QXX_Ok) {
+            return W25QXX_Err;
+        }
+
+        if (w25qxx_write_enable(w25qxx) == W25QXX_Ok) {
+
+            uint8_t tx[4] = {
+            W25QXX_PAGE_PROGRAM, (uint8_t) (start_address >> 16), (uint8_t) (start_address >> 8), (uint8_t) (start_address), };
+
+            cs_on(w25qxx);
+            if (w25qxx_transmit(w25qxx, tx, 4) == W25QXX_Ok) { // size will always be fixed
+                // Now write the buffer
+                if (w25qxx_transmit(w25qxx, buf + buffer_offset, write_len) != W25QXX_Ok) {
+                    cs_off(w25qxx);
+                    return W25QXX_Err;
+                }
+            }
+            cs_off(w25qxx);
+        }
+        start_address += write_len;
+        buffer_offset += write_len;
+        len -= write_len;
+    }
+
+    return W25QXX_Ok;
 }
 
-//###################################################################################################################
-void W25qxx_ReadUniqID(void)
-{
-	W25qxx_Spi(0x4B);
-	for(uint8_t	i=0;i<4;i++)
-		W25qxx_Spi(W25QXX_DUMMY_BYTE);
-	for(uint8_t	i=0;i<8;i++)
-		w25qxx.UniqID[i] = W25qxx_Spi(W25QXX_DUMMY_BYTE);
+W25QXX_result_t w25qxx_erase(W25QXX_HandleTypeDef *w25qxx, uint32_t address, uint32_t len) {
+
+    W25_DBG("w25qxx_erase, address = 0x%08lx len = 0x%04lx", address, len);
+
+    W25QXX_result_t ret = W25QXX_Ok;
+
+    // Let's determine the sector start
+    uint32_t first_sector = address / w25qxx->sector_size;
+    uint32_t last_sector = (address + len - 1) / w25qxx->sector_size;
+
+    W25_DBG("w25qxx_erase: first sector: 0x%04lx", first_sector);W25_DBG("w25qxx_erase: last sector : 0x%04lx", last_sector);
+
+    for (uint32_t sector = first_sector; sector <= last_sector; ++sector) {
+
+        W25_DBG("Erasing sector %lu, starting at: 0x%08lx", sector, sector * w25qxx->sector_size);
+
+        // First we have to ensure the device is not busy
+        if (w25qxx_wait_for_ready(w25qxx, HAL_MAX_DELAY) == W25QXX_Ok) {
+            if (w25qxx_write_enable(w25qxx) == W25QXX_Ok) {
+
+                uint32_t sector_start_address = sector * w25qxx->sector_size;
+
+                uint8_t tx[4] = {
+                W25QXX_SECTOR_ERASE, (uint8_t) (sector_start_address >> 16), (uint8_t) (sector_start_address >> 8), (uint8_t) (sector_start_address), };
+
+                cs_on(w25qxx);
+                if (w25qxx_transmit(w25qxx, tx, 4) != W25QXX_Ok) {
+                    ret = W25QXX_Err;
+                }
+                cs_off(w25qxx);
+            }
+        } else {
+            ret = W25QXX_Timeout;
+        }
+
+    }
+
+    return ret;
 }
 
-//###################################################################################################################
-void W25qxx_WriteEnable(void)
-{
-	W25qxx_Spi(0x06);
-	W25qxx_Delay(1);
+W25QXX_result_t w25qxx_chip_erase(W25QXX_HandleTypeDef *w25qxx) {
+    if (w25qxx_write_enable(w25qxx) == W25QXX_Ok) {
+        uint8_t tx[1] = {
+        W25QXX_CHIP_ERASE };
+        cs_on(w25qxx);
+        if (w25qxx_transmit(w25qxx, tx, 1) != W25QXX_Ok) {
+            return W25QXX_Err;
+        }
+        cs_off(w25qxx);
+        if (w25qxx_wait_for_ready(w25qxx, HAL_MAX_DELAY) != W25QXX_Ok) {
+            return W25QXX_Err;
+        }
+    }
+    return W25QXX_Ok;
 }
 
-//###################################################################################################################
-void W25qxx_WriteDisable(void)
+
+void ReadID_EEPROM(void)
 {
-	W25qxx_Spi(0x04);
-	W25qxx_Delay(1);
+	w25qxx_read(&w25qxx, ADDR_ID,  (uint8_t*) &EepromID, sizeof(EepromID));
+	w25qxx_read(&w25qxx, ADDR_REV, (uint8_t*) &prg_rev,  sizeof(prg_rev) );
 }
 
-//###################################################################################################################
-uint8_t W25qxx_ReadStatusRegister(uint8_t	SelectStatusRegister_1_2_3)
+void Save_Default_EEPROM(void)
 {
-	uint8_t	status=0;
+	EepromID = 0x55AA;
+	prg_rev = PRG_REVISION;
 
-	if(SelectStatusRegister_1_2_3==1) {
-		W25qxx_Spi(0x05);
-		status=W25qxx_Spi(W25QXX_DUMMY_BYTE);
-		w25qxx.StatusRegister1 = status;
-	}
-	else if(SelectStatusRegister_1_2_3==2) {
-		W25qxx_Spi(0x35);
-		status=W25qxx_Spi(W25QXX_DUMMY_BYTE);
-		w25qxx.StatusRegister2 = status;
-	}
-	else {
-		W25qxx_Spi(0x15);
-		status=W25qxx_Spi(W25QXX_DUMMY_BYTE);
-		w25qxx.StatusRegister3 = status;
-	}
+	target_iron  = 30;
+	target_air   = 50;
+	target_speed = 10;
 
-	return status;
+	w25qxx_write(&w25qxx, ADDR_ID,     (uint8_t*)&EepromID,     sizeof(EepromID));
+	w25qxx_write(&w25qxx, ADDR_REV,    (uint8_t*)&prg_rev,      sizeof(prg_rev));
+
+	w25qxx_write(&w25qxx, TARGET_IRON, (uint8_t*)&target_iron,  sizeof(target_iron));
+	w25qxx_write(&w25qxx, TARGET_AIR,  (uint8_t*)&target_air,   sizeof(target_air));
+	w25qxx_write(&w25qxx, TARGET_GUN,  (uint8_t*)&target_speed, sizeof(target_speed));
 }
 
-//###################################################################################################################
-void W25qxx_WriteStatusRegister(uint8_t	SelectStatusRegister_1_2_3,uint8_t Data)
+void Read_Config_EEPROM(void)
 {
-	if(SelectStatusRegister_1_2_3==1) {
-		W25qxx_Spi(0x01);
-		w25qxx.StatusRegister1 = Data;
-	}
-	else if(SelectStatusRegister_1_2_3==2) {
-		W25qxx_Spi(0x31);
-		w25qxx.StatusRegister2 = Data;
-	}
-	else {
-		W25qxx_Spi(0x11);
-		w25qxx.StatusRegister3 = Data;
-	}
-	W25qxx_Spi(Data);
+	w25qxx_read(&w25qxx, TARGET_IRON, (uint8_t*)&target_iron,  sizeof(target_iron));
+	w25qxx_read(&w25qxx, TARGET_AIR,  (uint8_t*)&target_air,   sizeof(target_air));
+	w25qxx_read(&w25qxx, TARGET_GUN,  (uint8_t*)&target_speed, sizeof(target_speed));
 }
-
-//###################################################################################################################
-void W25qxx_WaitForWriteEnd(void)
-{
-	W25qxx_Delay(1);
-	W25qxx_Spi(0x05);
-	do {
-		w25qxx.StatusRegister1 = W25qxx_Spi(W25QXX_DUMMY_BYTE);
-		W25qxx_Delay(1);
-	}
-	while ((w25qxx.StatusRegister1 & 0x01) == 0x01);
-}
-
-//###################################################################################################################
-bool	W25qxx_Init(void)
-{
-	uint32_t	id;
-
-	w25qxx.Lock=1;
-	while(HAL_GetTick()<100)
-		W25qxx_Delay(1);
-
-#if (_W25QXX_IRQ==1)
-//	__HAL_SPI_ENABLE_IT(&_W25QXX_SPI, (SPI_IT_RXNE | SPI_IT_ERR));
-#endif
-
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx Init Begin...\r\n");
-	#endif
-
-	id=W25qxx_ReadID();
-
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx ID:0x%X\r\n",id);
-	#endif
-
-	switch(id&0x0000FFFF)
-	{
-		case 0x401A:	// 	w25q512
-			w25qxx.ID=W25Q512;
-			w25qxx.BlockCount=1024;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q512\r\n");
-			#endif
-		break;
-		case 0x4019:	// 	w25q256
-			w25qxx.ID=W25Q256;
-			w25qxx.BlockCount=512;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q256\r\n");
-			#endif
-		break;
-		case 0x4018:	// 	w25q128
-			w25qxx.ID=W25Q128;
-			w25qxx.BlockCount=256;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: W25Q128FV\r\n");
-			#endif
-		break;
-		case 0x7018:	// 	w25q128FV
-			w25qxx.ID=W25Q128;
-			w25qxx.BlockCount=256;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: W25Q128JV\r\n");
-			#endif
-		break;
-		case 0x4017:	//	w25q64
-			w25qxx.ID=W25Q64;
-			w25qxx.BlockCount=128;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q64\r\n");
-			#endif
-		break;
-		case 0x4016:	//	w25q32
-			w25qxx.ID=W25Q32;
-			w25qxx.BlockCount=64;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q32\r\n");
-			#endif
-		break;
-		case 0x4015:	//	w25q16
-			w25qxx.ID=W25Q16;
-			w25qxx.BlockCount=32;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q16\r\n");
-			#endif
-		break;
-		case 0x4014:	//	w25q80
-			w25qxx.ID=W25Q80;
-			w25qxx.BlockCount=16;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q80\r\n");
-			#endif
-		break;
-		case 0x4013:	//	w25q40
-			w25qxx.ID=W25Q40;
-			w25qxx.BlockCount=8;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q40\r\n");
-			#endif
-		break;
-		case 0x4012:	//	w25q20
-			w25qxx.ID=W25Q20;
-			w25qxx.BlockCount=4;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q20\r\n");
-			#endif
-		break;
-		case 0x4011:	//	w25q10
-			w25qxx.ID=W25Q10;
-			w25qxx.BlockCount=2;
-			#if (_W25QXX_DEBUG==1)
-			logI("w25qxx Chip: w25q10\r\n");
-			#endif
-		break;
-		default:
-				#if (_W25QXX_DEBUG==1)
-				logI("w25qxx Unknown ID\r\n");
-				#endif
-			w25qxx.Lock=0;
-			return false;
-
-	}
-	w25qxx.PageSize=256;
-	w25qxx.SectorSize=0x1000;
-	w25qxx.SectorCount=w25qxx.BlockCount*16;
-	w25qxx.PageCount=(w25qxx.SectorCount*w25qxx.SectorSize)/w25qxx.PageSize;
-	w25qxx.BlockSize=w25qxx.SectorSize*16;
-	w25qxx.CapacityInKiloByte=(w25qxx.SectorCount*w25qxx.SectorSize)/1024;
-	W25qxx_ReadUniqID();
-	W25qxx_ReadStatusRegister(1);
-	W25qxx_ReadStatusRegister(2);
-	W25qxx_ReadStatusRegister(3);
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx Page Size: %d Bytes\r\n",w25qxx.PageSize);
-		logI("w25qxx Page Count: %d\r\n",w25qxx.PageCount);
-		logI("w25qxx Sector Size: %d Bytes\r\n",w25qxx.SectorSize);
-		logI("w25qxx Sector Count: %d\r\n",w25qxx.SectorCount);
-		logI("w25qxx Block Size: %d Bytes\r\n",w25qxx.BlockSize);
-		logI("w25qxx Block Count: %d\r\n",w25qxx.BlockCount);
-		logI("w25qxx Capacity: %d KiloBytes\r\n",w25qxx.CapacityInKiloByte);
-		logI("w25qxx Init Done\r\n");
-	#endif
-
-	w25qxx.Lock=0;
-	return true;
-}
-
-//###################################################################################################################
-void	W25qxx_EraseChip(void)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	#if (_W25QXX_DEBUG==1)
-	uint32_t	StartTime=HAL_GetTick();
-	logI("w25qxx EraseChip Begin...\r\n");
-	#endif
-
-	W25qxx_WriteEnable();
-	W25qxx_Spi(0xC7);
-	W25qxx_WaitForWriteEnd();
-
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx EraseBlock done after %d ms!\r\n",HAL_GetTick()-StartTime);
-	#endif
-
-	W25qxx_Delay(1);
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void W25qxx_EraseSector(uint32_t SectorAddr)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-
-	w25qxx.Lock=1;
-
-	#if (_W25QXX_DEBUG==1)
-	uint32_t	StartTime=HAL_GetTick();
-	logI("w25qxx EraseSector %d Begin...\r\n",SectorAddr);
-	#endif
-
-	W25qxx_WaitForWriteEnd();
-	SectorAddr = SectorAddr * w25qxx.SectorSize;
-	W25qxx_WriteEnable();
-	W25qxx_Spi(0x20);
-
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((SectorAddr & 0xFF000000) >> 24);
-
-	W25qxx_Spi((SectorAddr & 0xFF0000) >> 16);
-	W25qxx_Spi((SectorAddr & 0xFF00) >> 8);
-	W25qxx_Spi(SectorAddr & 0xFF);
-	W25qxx_WaitForWriteEnd();
-
-	#if (_W25QXX_DEBUG==1)
-  	logI("w25qxx EraseSector done after %d ms\r\n",HAL_GetTick()-StartTime);
-	#endif
-
-  	W25qxx_Delay(1);
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void W25qxx_EraseBlock(uint32_t BlockAddr)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-
-	w25qxx.Lock=1;
-
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx EraseBlock %d Begin...\r\n",BlockAddr);
-	W25qxx_Delay(100);
-	uint32_t	StartTime=HAL_GetTick();
-	#endif
-
-	W25qxx_WaitForWriteEnd();
-	BlockAddr = BlockAddr * w25qxx.SectorSize*16;
-	W25qxx_WriteEnable();
-	W25qxx_Spi(0xD8);
-
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((BlockAddr & 0xFF000000) >> 24);
-
-	W25qxx_Spi((BlockAddr & 0xFF0000) >> 16);
-	W25qxx_Spi((BlockAddr & 0xFF00) >> 8);
-	W25qxx_Spi(BlockAddr & 0xFF);
-	W25qxx_WaitForWriteEnd();
-
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx EraseBlock done after %d ms\r\n",HAL_GetTick()-StartTime);
-	W25qxx_Delay(100);
-	#endif
-
-	W25qxx_Delay(1);
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-uint32_t	W25qxx_PageToSector(uint32_t	PageAddress)
-{
-	return ((PageAddress*w25qxx.PageSize)/w25qxx.SectorSize);
-}
-
-//###################################################################################################################
-uint32_t	W25qxx_PageToBlock(uint32_t	PageAddress)
-{
-	return ((PageAddress*w25qxx.PageSize)/w25qxx.BlockSize);
-}
-
-//###################################################################################################################
-uint32_t	W25qxx_SectorToBlock(uint32_t	SectorAddress)
-{
-	return ((SectorAddress*w25qxx.SectorSize)/w25qxx.BlockSize);
-}
-
-//###################################################################################################################
-uint32_t	W25qxx_SectorToPage(uint32_t	SectorAddress)
-{
-	return (SectorAddress*w25qxx.SectorSize)/w25qxx.PageSize;
-}
-
-//###################################################################################################################
-uint32_t	W25qxx_BlockToPage(uint32_t	BlockAddress)
-{
-	return (BlockAddress*w25qxx.BlockSize)/w25qxx.PageSize;
-}
-
-//###################################################################################################################
-bool 	W25qxx_IsEmptyPage(uint32_t Page_Address,uint32_t OffsetInByte,uint32_t NumByteToCheck_up_to_PageSize)
-{
-	while(w25qxx.Lock==1)
-	W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	if(((NumByteToCheck_up_to_PageSize+OffsetInByte)>w25qxx.PageSize)||(NumByteToCheck_up_to_PageSize==0))
-		NumByteToCheck_up_to_PageSize=w25qxx.PageSize-OffsetInByte;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckPage:%d, Offset:%d, Bytes:%d begin...\r\n",Page_Address,OffsetInByte,NumByteToCheck_up_to_PageSize);
-		W25qxx_Delay(100);
-		uint32_t	StartTime=HAL_GetTick();
-	#endif
-
-	uint8_t	pBuffer[32];
-	uint32_t	WorkAddress;
-	uint32_t	i;
-	for(i=OffsetInByte; i<w25qxx.PageSize; i+=sizeof(pBuffer)) {
-		WorkAddress=(i+Page_Address*w25qxx.PageSize);
-		W25qxx_Spi(0x0B);
-		if(w25qxx.ID>=W25Q256)
-			W25qxx_Spi((WorkAddress & 0xFF000000) >> 24);
-		W25qxx_Spi((WorkAddress & 0xFF0000) >> 16);
-		W25qxx_Spi((WorkAddress & 0xFF00) >> 8);
-		W25qxx_Spi(WorkAddress & 0xFF);
-		W25qxx_Spi(0);
-		HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,sizeof(pBuffer),100);
-		for(uint8_t x=0;x<sizeof(pBuffer);x++) {
-			if(pBuffer[x]!=0xFF)
-				goto NOT_EMPTY;
-		}
-	}
-	if((w25qxx.PageSize+OffsetInByte)%sizeof(pBuffer)!=0) {
-		i-=sizeof(pBuffer);
-		for( ; i<w25qxx.PageSize; i++) {
-			WorkAddress=(i+Page_Address*w25qxx.PageSize);
-			W25qxx_Spi(0x0B);
-			if(w25qxx.ID>=W25Q256)
-				W25qxx_Spi((WorkAddress & 0xFF000000) >> 24);
-			W25qxx_Spi((WorkAddress & 0xFF0000) >> 16);
-			W25qxx_Spi((WorkAddress & 0xFF00) >> 8);
-			W25qxx_Spi(WorkAddress & 0xFF);
-			W25qxx_Spi(0);
-			HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,1,100);
-			if(pBuffer[0]!=0xFF)
-				goto NOT_EMPTY;
-		}
-	}
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckPage is Empty in %d ms\r\n",HAL_GetTick()-StartTime);
-		W25qxx_Delay(100);
-	#endif
-
-	w25qxx.Lock=0;
-	return true;
-
-	NOT_EMPTY:
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckPage is Not Empty in %d ms\r\n",HAL_GetTick()-StartTime);
-		W25qxx_Delay(100);
-	#endif
-
-	w25qxx.Lock=0;
-	return false;
-}
-
-//###################################################################################################################
-bool 	W25qxx_IsEmptySector(uint32_t Sector_Address,uint32_t OffsetInByte,uint32_t NumByteToCheck_up_to_SectorSize)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	if((NumByteToCheck_up_to_SectorSize>w25qxx.SectorSize)||(NumByteToCheck_up_to_SectorSize==0))
-		NumByteToCheck_up_to_SectorSize=w25qxx.SectorSize;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckSector:%d, Offset:%d, Bytes:%d begin...\r\n",Sector_Address,OffsetInByte,NumByteToCheck_up_to_SectorSize);
-		W25qxx_Delay(100);
-		uint32_t	StartTime=HAL_GetTick();
-	#endif
-
-	uint8_t	pBuffer[32];
-	uint32_t	WorkAddress;
-	uint32_t	i;
-	for(i=OffsetInByte; i<w25qxx.SectorSize; i+=sizeof(pBuffer))
-	{
-		WorkAddress=(i+Sector_Address*w25qxx.SectorSize);
-		W25qxx_Spi(0x0B);
-		if(w25qxx.ID>=W25Q256)
-			W25qxx_Spi((WorkAddress & 0xFF000000) >> 24);
-		W25qxx_Spi((WorkAddress & 0xFF0000) >> 16);
-		W25qxx_Spi((WorkAddress & 0xFF00) >> 8);
-		W25qxx_Spi(WorkAddress & 0xFF);
-		W25qxx_Spi(0);
-		HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,sizeof(pBuffer),100);
-		for(uint8_t x=0;x<sizeof(pBuffer);x++)
-		{
-			if(pBuffer[x]!=0xFF)
-				goto NOT_EMPTY;
-		}
-	}
-	if((w25qxx.SectorSize+OffsetInByte)%sizeof(pBuffer)!=0)
-	{
-		i-=sizeof(pBuffer);
-		for( ; i<w25qxx.SectorSize; i++)
-		{
-			WorkAddress=(i+Sector_Address*w25qxx.SectorSize);
-			W25qxx_Spi(0x0B);
-			if(w25qxx.ID>=W25Q256)
-				W25qxx_Spi((WorkAddress & 0xFF000000) >> 24);
-			W25qxx_Spi((WorkAddress & 0xFF0000) >> 16);
-			W25qxx_Spi((WorkAddress & 0xFF00) >> 8);
-			W25qxx_Spi(WorkAddress & 0xFF);
-			W25qxx_Spi(0);
-			HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,1,100);
-			if(pBuffer[0]!=0xFF)
-				goto NOT_EMPTY;
-		}
-	}
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx CheckSector is Empty in %d ms\r\n",HAL_GetTick()-StartTime);
-	W25qxx_Delay(100);
-	#endif
-	w25qxx.Lock=0;
-	return true;
-	NOT_EMPTY:
-	#if (_W25QXX_DEBUG==1)
-	logI("w25qxx CheckSector is Not Empty in %d ms\r\n",HAL_GetTick()-StartTime);
-	W25qxx_Delay(100);
-	#endif
-	w25qxx.Lock=0;
-	return false;
-}
-
-//###################################################################################################################
-bool 	W25qxx_IsEmptyBlock(uint32_t Block_Address,uint32_t OffsetInByte,uint32_t NumByteToCheck_up_to_BlockSize)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	if((NumByteToCheck_up_to_BlockSize>w25qxx.BlockSize)||(NumByteToCheck_up_to_BlockSize==0))
-		NumByteToCheck_up_to_BlockSize=w25qxx.BlockSize;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckBlock:%d, Offset:%d, Bytes:%d begin...\r\n",Block_Address,OffsetInByte,NumByteToCheck_up_to_BlockSize);
-		W25qxx_Delay(100);
-		uint32_t	StartTime=HAL_GetTick();
-	#endif
-
-	uint8_t	pBuffer[32];
-	uint32_t	WorkAddress;
-	uint32_t	i;
-	for(i=OffsetInByte; i<w25qxx.BlockSize; i+=sizeof(pBuffer)) {
-		WorkAddress=(i+Block_Address*w25qxx.BlockSize);
-		W25qxx_Spi(0x0B);
-		if(w25qxx.ID>=W25Q256)
-			W25qxx_Spi((WorkAddress & 0xFF000000) >> 24);
-		W25qxx_Spi((WorkAddress & 0xFF0000) >> 16);
-		W25qxx_Spi((WorkAddress & 0xFF00) >> 8);
-		W25qxx_Spi(WorkAddress & 0xFF);
-		W25qxx_Spi(0);
-		HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,sizeof(pBuffer),100);
-		for(uint8_t x=0;x<sizeof(pBuffer);x++) {
-			if(pBuffer[x]!=0xFF)
-				goto NOT_EMPTY;
-		}
-	}
-	if((w25qxx.BlockSize+OffsetInByte)%sizeof(pBuffer)!=0) {
-		i-=sizeof(pBuffer);
-		for( ; i<w25qxx.BlockSize; i++) {
-			WorkAddress=(i+Block_Address*w25qxx.BlockSize);
-			W25qxx_Spi(0x0B);
-			if(w25qxx.ID>=W25Q256)
-				W25qxx_Spi((WorkAddress & 0xFF000000) >> 24);
-			W25qxx_Spi((WorkAddress & 0xFF0000) >> 16);
-			W25qxx_Spi((WorkAddress & 0xFF00) >> 8);
-			W25qxx_Spi(WorkAddress & 0xFF);
-			W25qxx_Spi(0);
-			HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,1,100);
-			if(pBuffer[0]!=0xFF)
-				goto NOT_EMPTY;
-		}
-	}
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckBlock is Empty in %d ms\r\n",HAL_GetTick()-StartTime);
-		W25qxx_Delay(100);
-	#endif
-
-	w25qxx.Lock=0;
-	return true;
-
-	NOT_EMPTY:
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx CheckBlock is Not Empty in %d ms\r\n",HAL_GetTick()-StartTime);
-		W25qxx_Delay(100);
-	#endif
-
-	w25qxx.Lock=0;
-	return false;
-}
-
-//###################################################################################################################
-void W25qxx_WriteByte(uint8_t pBuffer, uint32_t WriteAddr_inBytes)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	#if (_W25QXX_DEBUG==1)
-		uint32_t	StartTime=HAL_GetTick();
-		logI("w25qxx WriteByte 0x%02X at address %d begin...",pBuffer,WriteAddr_inBytes);
-	#endif
-
-	W25qxx_WaitForWriteEnd();
-	W25qxx_WriteEnable();
-	W25qxx_Spi(0x02);
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((WriteAddr_inBytes & 0xFF000000) >> 24);
-	W25qxx_Spi((WriteAddr_inBytes & 0xFF0000) >> 16);
-	W25qxx_Spi((WriteAddr_inBytes & 0xFF00) >> 8);
-	W25qxx_Spi(WriteAddr_inBytes & 0xFF);
-	W25qxx_Spi(pBuffer);
-	W25qxx_WaitForWriteEnd();
-
-	#if (_W25QXX_DEBUG==1)
-    	logI("w25qxx WriteByte done after %d ms\r\n",HAL_GetTick()-StartTime);
-	#endif
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void 	W25qxx_WritePage(uint8_t *pBuffer, uint32_t Page_Address, uint32_t OffsetInByte,uint32_t NumByteToWrite_up_to_PageSize)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	if(((NumByteToWrite_up_to_PageSize+OffsetInByte)>w25qxx.PageSize)||(NumByteToWrite_up_to_PageSize==0))
-		NumByteToWrite_up_to_PageSize=w25qxx.PageSize-OffsetInByte;
-	if((OffsetInByte+NumByteToWrite_up_to_PageSize) > w25qxx.PageSize)
-		NumByteToWrite_up_to_PageSize = w25qxx.PageSize-OffsetInByte;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx WritePage:%d, Offset:%d ,Writes %d Bytes, begin...\r\n",Page_Address,OffsetInByte,NumByteToWrite_up_to_PageSize);
-		W25qxx_Delay(100);
-		uint32_t	StartTime=HAL_GetTick();
-	#endif
-	W25qxx_WaitForWriteEnd();
-	W25qxx_WriteEnable();
-	W25qxx_Spi(0x02);
-	Page_Address = (Page_Address*w25qxx.PageSize)+OffsetInByte;
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((Page_Address & 0xFF000000) >> 24);
-	W25qxx_Spi((Page_Address & 0xFF0000) >> 16);
-	W25qxx_Spi((Page_Address & 0xFF00) >> 8);
-	W25qxx_Spi(Page_Address&0xFF);
-	HAL_SPI_Transmit(&_W25QXX_SPI,pBuffer,NumByteToWrite_up_to_PageSize,100);
-	W25qxx_WaitForWriteEnd();
-
-	#if (_W25QXX_DEBUG==1)
-		StartTime = HAL_GetTick()-StartTime;
-		for(uint32_t i=0;i<NumByteToWrite_up_to_PageSize ; i++) {
-			if((i%8==0)&&(i>2)) {
-				logI("\r\n");
-				W25qxx_Delay(10);
-			}
-			logI("0x%02X,",pBuffer[i]);
-		}
-		logI("\r\n");
-		logI("w25qxx WritePage done after %d ms\r\n",StartTime);
-		W25qxx_Delay(10);
-	#endif
-
-	W25qxx_Delay(1);
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void 	W25qxx_WriteSector(uint8_t *pBuffer	,uint32_t Sector_Address,uint32_t OffsetInByte	,uint32_t NumByteToWrite_up_to_SectorSize)
-{
-	if((NumByteToWrite_up_to_SectorSize>w25qxx.SectorSize)||(NumByteToWrite_up_to_SectorSize==0))
-		NumByteToWrite_up_to_SectorSize=w25qxx.SectorSize;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("+++w25qxx WriteSector:%d, Offset:%d ,Write %d Bytes, begin...\r\n",Sector_Address,OffsetInByte,NumByteToWrite_up_to_SectorSize);
-		W25qxx_Delay(100);
-	#endif
-
-	if(OffsetInByte>=w25qxx.SectorSize) {
-		#if (_W25QXX_DEBUG==1)
-			logI("---w25qxx WriteSector Faild!\r\n");
-			W25qxx_Delay(100);
-		#endif
-		return;
-	}
-	uint32_t	StartPage;
-	int32_t		BytesToWrite;
-	uint32_t	LocalOffset;
-	if((OffsetInByte+NumByteToWrite_up_to_SectorSize) > w25qxx.SectorSize)
-		BytesToWrite = w25qxx.SectorSize-OffsetInByte;
-	else
-		BytesToWrite = NumByteToWrite_up_to_SectorSize;
-	StartPage = W25qxx_SectorToPage(Sector_Address)+(OffsetInByte/w25qxx.PageSize);
-	LocalOffset = OffsetInByte%w25qxx.PageSize;
-	do {
-		W25qxx_WritePage(pBuffer,StartPage,LocalOffset,BytesToWrite);
-		StartPage++;
-		BytesToWrite-=w25qxx.PageSize-LocalOffset;
-		pBuffer+=w25qxx.PageSize;
-		LocalOffset=0;
-	}while(BytesToWrite>0);
-
-	#if (_W25QXX_DEBUG==1)
-		logI("---w25qxx WriteSector Done\r\n");
-		W25qxx_Delay(100);
-	#endif
-}
-
-//###################################################################################################################
-void 	W25qxx_WriteBlock	(uint8_t* pBuffer ,uint32_t Block_Address	,uint32_t OffsetInByte	,uint32_t	NumByteToWrite_up_to_BlockSize)
-{
-	if((NumByteToWrite_up_to_BlockSize>w25qxx.BlockSize)||(NumByteToWrite_up_to_BlockSize==0))
-		NumByteToWrite_up_to_BlockSize=w25qxx.BlockSize;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("+++w25qxx WriteBlock:%d, Offset:%d ,Write %d Bytes, begin...\r\n",Block_Address,OffsetInByte,NumByteToWrite_up_to_BlockSize);
-		W25qxx_Delay(100);
-	#endif
-
-	if(OffsetInByte>=w25qxx.BlockSize) {
-		#if (_W25QXX_DEBUG==1)
-			logI("---w25qxx WriteBlock Faild!\r\n");
-			W25qxx_Delay(100);
-		#endif
-		return;
-	}
-	uint32_t	StartPage;
-	int32_t		BytesToWrite;
-	uint32_t	LocalOffset;
-	if((OffsetInByte+NumByteToWrite_up_to_BlockSize) > w25qxx.BlockSize)
-		BytesToWrite = w25qxx.BlockSize-OffsetInByte;
-	else
-		BytesToWrite = NumByteToWrite_up_to_BlockSize;
-	StartPage = W25qxx_BlockToPage(Block_Address)+(OffsetInByte/w25qxx.PageSize);
-	LocalOffset = OffsetInByte%w25qxx.PageSize;
-	do {
-		W25qxx_WritePage(pBuffer,StartPage,LocalOffset,BytesToWrite);
-		StartPage++;
-		BytesToWrite-=w25qxx.PageSize-LocalOffset;
-		pBuffer+=w25qxx.PageSize;
-		LocalOffset=0;
-	}while(BytesToWrite>0);
-	#if (_W25QXX_DEBUG==1)
-		logI("---w25qxx WriteBlock Done\r\n");
-		W25qxx_Delay(100);
-	#endif
-}
-
-//###################################################################################################################
-void 	W25qxx_ReadByte(uint8_t *pBuffer,uint32_t Bytes_Address)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	#if (_W25QXX_DEBUG==1)
-		uint32_t	StartTime=HAL_GetTick();
-		logI("w25qxx ReadByte at address %d begin...\r\n",Bytes_Address);
-	#endif
-
-	W25qxx_Spi(0x0B);
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((Bytes_Address & 0xFF000000) >> 24);
-	W25qxx_Spi((Bytes_Address & 0xFF0000) >> 16);
-	W25qxx_Spi((Bytes_Address& 0xFF00) >> 8);
-	W25qxx_Spi(Bytes_Address & 0xFF);
-	W25qxx_Spi(0);
-	*pBuffer = W25qxx_Spi(W25QXX_DUMMY_BYTE);
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx ReadByte 0x%02X done after %d ms\r\n",*pBuffer,HAL_GetTick()-StartTime);
-	#endif
-
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void W25qxx_ReadBytes(uint8_t* pBuffer, uint32_t ReadAddr, uint32_t NumByteToRead)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-
-	w25qxx.Lock=1;
-
-	#if (_W25QXX_DEBUG==1)
-		uint32_t	StartTime=HAL_GetTick();
-		logI("w25qxx ReadBytes at Address:%d, %d Bytes  begin...\r\n",ReadAddr,NumByteToRead);
-	#endif
-
-	W25qxx_Spi(0x0B);
-
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((ReadAddr & 0xFF000000) >> 24);
-
-	W25qxx_Spi((ReadAddr & 0xFF0000) >> 16);
-    W25qxx_Spi((ReadAddr& 0xFF00) >> 8);
-    W25qxx_Spi(ReadAddr & 0xFF);
-	W25qxx_Spi(0);
-
-#if (_W25QXX_IRQ==1)
- 	rx_complete_SPI = 0;
- 	if(_W25QXX_SPI.State == HAL_SPI_STATE_READY ) {
- 		wTransferState = TRANSFER_WAIT;
- 		if (HAL_SPI_Receive_IT(&_W25QXX_SPI, pBuffer, NumByteToRead) != HAL_OK)
- 		{
- 			wTransferState = TRANSFER_ERROR;
- 		}
- 		while (wTransferState == TRANSFER_WAIT);
- 	}
-  	cont_spi = 0;
-//  	while(!rx_complete_SPI){
-//  		debug_spi = HAL_SPI_GetState(&_W25QXX_SPI);
-//  		if(debug_spi == HAL_SPI_STATE_READY) break;
- // 		cont_spi++;
-//  		if(cont_spi > 800) break;
-//  	}
-#else
-	HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,NumByteToRead,2000);
-#endif
-
-	#if (_W25QXX_DEBUG==1)
-	StartTime = HAL_GetTick()-StartTime;
-	for(uint32_t i=0;i<NumByteToRead ; i++)
-	{
-		if((i%8==0)&&(i>2))
-		{
-			logI("\r\n");
-			W25qxx_Delay(10);
-		}
-		logI("0x%02X,",pBuffer[i]);
-	}
-	logI("\r\n");
-	logI("w25qxx ReadBytes done after %d ms\r\n",StartTime);
-	W25qxx_Delay(100);
-	#endif
-
-	//W25qxx_Delay(1);
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void 	W25qxx_ReadPage(uint8_t *pBuffer,uint32_t Page_Address,uint32_t OffsetInByte,uint32_t NumByteToRead_up_to_PageSize)
-{
-	while(w25qxx.Lock==1)
-		W25qxx_Delay(1);
-	w25qxx.Lock=1;
-
-	if((NumByteToRead_up_to_PageSize>w25qxx.PageSize)||(NumByteToRead_up_to_PageSize==0))
-		NumByteToRead_up_to_PageSize=w25qxx.PageSize;
-	if((OffsetInByte+NumByteToRead_up_to_PageSize) > w25qxx.PageSize)
-		NumByteToRead_up_to_PageSize = w25qxx.PageSize-OffsetInByte;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("w25qxx ReadPage:%d, Offset:%d ,Read %d Bytes, begin...\r\n",Page_Address,OffsetInByte,NumByteToRead_up_to_PageSize);
-		W25qxx_Delay(100);
-		uint32_t	StartTime=HAL_GetTick();
-	#endif
-
-	Page_Address = Page_Address*w25qxx.PageSize+OffsetInByte;
-	W25qxx_Spi(0x0B);
-	if(w25qxx.ID>=W25Q256)
-		W25qxx_Spi((Page_Address & 0xFF000000) >> 24);
-	W25qxx_Spi((Page_Address & 0xFF0000) >> 16);
-	W25qxx_Spi((Page_Address& 0xFF00) >> 8);
-	W25qxx_Spi(Page_Address & 0xFF);
-	W25qxx_Spi(0);
-	HAL_SPI_Receive(&_W25QXX_SPI,pBuffer,NumByteToRead_up_to_PageSize,100);
-
-	#if (_W25QXX_DEBUG==1)
-		StartTime = HAL_GetTick()-StartTime;
-		for(uint32_t i=0;i<NumByteToRead_up_to_PageSize ; i++) {
-			if((i%8==0)&&(i>2)) {
-				logI("\r\n");
-				W25qxx_Delay(10);
-			}
-			logI("0x%02X,",pBuffer[i]);
-		}
-		logI("\r\n");
-		logI("w25qxx ReadPage done after %d ms\r\n",StartTime);
-		W25qxx_Delay(100);
-	#endif
-
-	W25qxx_Delay(1);
-	w25qxx.Lock=0;
-}
-
-//###################################################################################################################
-void 	W25qxx_ReadSector(uint8_t *pBuffer,uint32_t Sector_Address,uint32_t OffsetInByte,uint32_t NumByteToRead_up_to_SectorSize)
-{
-	if((NumByteToRead_up_to_SectorSize>w25qxx.SectorSize)||(NumByteToRead_up_to_SectorSize==0))
-		NumByteToRead_up_to_SectorSize=w25qxx.SectorSize;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("+++w25qxx ReadSector:%d, Offset:%d ,Read %d Bytes, begin...\r\n",Sector_Address,OffsetInByte,NumByteToRead_up_to_SectorSize);
-		W25qxx_Delay(100);
-	#endif
-
-	if(OffsetInByte>=w25qxx.SectorSize) {
-		#if (_W25QXX_DEBUG==1)
-			logI("---w25qxx ReadSector Faild!\r\n");
-			W25qxx_Delay(100);
-		#endif
-		return;
-	}
-
-	uint32_t	StartPage;
-	int32_t		BytesToRead;
-	uint32_t	LocalOffset;
-
-	if((OffsetInByte+NumByteToRead_up_to_SectorSize) > w25qxx.SectorSize)
-		BytesToRead = w25qxx.SectorSize-OffsetInByte;
-	else
-		BytesToRead = NumByteToRead_up_to_SectorSize;
-	StartPage = W25qxx_SectorToPage(Sector_Address)+(OffsetInByte/w25qxx.PageSize);
-	LocalOffset = OffsetInByte%w25qxx.PageSize;
-	do {
-		W25qxx_ReadPage(pBuffer,StartPage,LocalOffset,BytesToRead);
-		StartPage++;
-		BytesToRead-=w25qxx.PageSize-LocalOffset;
-		pBuffer+=w25qxx.PageSize;
-		LocalOffset=0;
-	}while(BytesToRead>0);
-
-	#if (_W25QXX_DEBUG==1)
-		logI("---w25qxx ReadSector Done\r\n");
-		W25qxx_Delay(100);
-	#endif
-}
-
-//###################################################################################################################
-void 	W25qxx_ReadBlock(uint8_t* pBuffer,uint32_t Block_Address,uint32_t OffsetInByte,uint32_t	NumByteToRead_up_to_BlockSize)
-{
-	if((NumByteToRead_up_to_BlockSize>w25qxx.BlockSize)||(NumByteToRead_up_to_BlockSize==0))
-		NumByteToRead_up_to_BlockSize=w25qxx.BlockSize;
-
-	#if (_W25QXX_DEBUG==1)
-		logI("+++w25qxx ReadBlock:%d, Offset:%d ,Read %d Bytes, begin...\r\n",Block_Address,OffsetInByte,NumByteToRead_up_to_BlockSize);
-		W25qxx_Delay(100);
-	#endif
-
-	if(OffsetInByte>=w25qxx.BlockSize) {
-		#if (_W25QXX_DEBUG==1)
-			logI("w25qxx ReadBlock Faild!\r\n");
-			W25qxx_Delay(100);
-		#endif
-		return;
-	}
-
-	uint32_t	StartPage;
-	int32_t		BytesToRead;
-	uint32_t	LocalOffset;
-
-	if((OffsetInByte+NumByteToRead_up_to_BlockSize) > w25qxx.BlockSize)
-		BytesToRead = w25qxx.BlockSize-OffsetInByte;
-	else
-		BytesToRead = NumByteToRead_up_to_BlockSize;
-
-	StartPage = W25qxx_BlockToPage(Block_Address)+(OffsetInByte/w25qxx.PageSize);
-	LocalOffset = OffsetInByte%w25qxx.PageSize;
-	do {
-		W25qxx_ReadPage(pBuffer,StartPage,LocalOffset,BytesToRead);
-		StartPage++;
-		BytesToRead-=w25qxx.PageSize-LocalOffset;
-		pBuffer+=w25qxx.PageSize;
-		LocalOffset=0;
-	}while(BytesToRead>0);
-
-	#if (_W25QXX_DEBUG==1)
-		logI("---w25qxx ReadBlock Done\r\n");
-		W25qxx_Delay(100);
-	#endif
-}
-
-uint8_t spi_test[4096] = {0};
-uint32_t timer_flash = 0;
-
-uint32_t speed_spi_flash(uint32_t size)
-{
-	timer_flash = HAL_GetTick();
-	W25qxx_ReadBytes(&spi_test[0], 0, size);
-#if (_W25QXX_DEBUG==1)
-	logI("Debug: \n\r");
-	for(uint32_t x = 0; x < size; x ++) {
-		logI("End: %ld Dado: %d\n\r", x, spi_test[x]);
-	}
-	logI("\n\r");
-#endif
-	return(HAL_GetTick() - timer_flash);
-}
-
-void teste_spi_flash(void)
-{
-	W25qxx_WriteByte(0x00, 0);
-	W25qxx_WriteByte(0x01, 1);
-	W25qxx_WriteByte(0x02, 2);
-	W25qxx_WriteByte(0x03, 3);
-	W25qxx_WriteByte(0x04, 4);
-	W25qxx_WriteByte(0x05, 5);
-	W25qxx_WriteByte(0x06, 6);
-	W25qxx_WriteByte(0x07, 7);
-	W25qxx_WriteByte(0x08, 8);
-	W25qxx_WriteByte(0x09, 9);
-	W25qxx_WriteByte(0x0A, 10);
-	W25qxx_WriteByte(0x0B, 11);
-	W25qxx_WriteByte(0x0C, 12);
-	W25qxx_WriteByte(0x0D, 13);
-	W25qxx_WriteByte(0x0E, 14);
-	W25qxx_WriteByte(0x0F, 15);
-}
-
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
-{
-	if(hspi->Instance==SPI1) {
-		rx_complete_SPI = 1;
-		wTransferState = TRANSFER_COMPLETE;
-	}
-}
-
-void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
-{
-	if(hspi->Instance==SPI1) {
-		wTransferState = TRANSFER_ERROR;
-	}
-}
-
-void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
-{
-	if(hspi->Instance==SPI1) {
-		wTransferState = TRANSFER_COMPLETE;
-	}
-}
-//###################################################################################################################

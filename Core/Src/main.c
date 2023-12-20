@@ -34,6 +34,7 @@
 #include "../App/key.h"
 #include "../App/ILI9341.h"
 #include "../App/MAX31856.h"
+#include "../App/W25qxx.h"
 #include "../App/Encoder.h"
 #include "../App/log_usb.h"
 #include "../lvgl/lvgl.h"
@@ -112,6 +113,8 @@ uint32_t dimmer_out[NUM_DIMMERS]     = { 0, 0 };
 uint32_t timer_cnt5 = 0;
 uint32_t timer_cnt5_max = 0;
 
+uint16_t EepromID = 0xFFFF, prg_rev = 0xFFFF;
+
 float vdda = 0.0f; 		// Result of VDDA calculation
 float vref = 0.0f; 		// Result of VREF calculation
 float vbat = 0.0f;		// Result of VBAT calculation
@@ -121,6 +124,9 @@ static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf1[(ILI9341_SCREEN_WIDTH * 20)];	// Declare a buffer for 1/10 screen size
 static lv_color_t buf2[(ILI9341_SCREEN_WIDTH * 20)];
 static lv_disp_drv_t disp_drv;        					// Descriptor of a display driver
+
+W25QXX_result_t res;
+W25QXX_HandleTypeDef w25qxx; // Handler for all w25qxx operations!
 
 max31856_t therm_iron = {&hspi1, {CS_IRON_GPIO_Port, CS_IRON_Pin}};
 max31856_t therm_gun  = {&hspi1, {CS_GUN_GPIO_Port, CS_GUN_Pin}};
@@ -282,6 +288,37 @@ int main(void)
   max_dbg_g.LTCBL = max31856_read_register(&therm_gun, MAX31856_LTCBL);
 
   max_dbg_g.SR = max31856_read_register(&therm_gun, MAX31856_SR);
+
+  // Inicia Flash SPI
+  res = w25qxx_init(&w25qxx, &hspi1, FLASH_CS_GPIO_Port, FLASH_CS_Pin);
+  if (res == W25QXX_Ok) {
+          //DBG("W25QXX successfully initialized");
+          //DBG("Manufacturer       = 0x%2x", w25qxx.manufacturer_id);
+          //DBG("Device             = 0x%4x", w25qxx.device_id);
+          //DBG("Block size         = 0x%04lx (%lu)", w25qxx.block_size, w25qxx.block_size);
+          //DBG("Block count        = 0x%04lx (%lu)", w25qxx.block_count, w25qxx.block_count);
+          //DBG("Sector size        = 0x%04lx (%lu)", w25qxx.sector_size, w25qxx.sector_size);
+          //DBG("Sectors per block  = 0x%04lx (%lu)", w25qxx.sectors_in_block, w25qxx.sectors_in_block);
+          //DBG("Page size          = 0x%04lx (%lu)", w25qxx.page_size, w25qxx.page_size);
+          //DBG("Pages per sector   = 0x%04lx (%lu)", w25qxx.pages_in_sector, w25qxx.pages_in_sector);
+          //DBG("Total size (in kB) = 0x%04lx (%lu)", (w25qxx.block_count * w25qxx.block_size) / 1024, (w25qxx.block_count * w25qxx.block_size) / 1024);
+  }
+  else {
+          //DBG("Unable to initialize w25qxx");
+  }
+  EepromID = 0xFFFF;
+  prg_rev = 0xFFFF;
+  target_iron  = 30;
+  target_air   = 50;
+  target_speed = 10;
+
+//  ReadID_EEPROM();
+//  if(EepromID != 0x55AA || prg_rev != PRG_REVISION) {
+//  	  Save_Default_EEPROM();
+//  }
+//  else {
+//  	  Read_Config_EEPROM();
+//  }
 
   lv_init();
 
