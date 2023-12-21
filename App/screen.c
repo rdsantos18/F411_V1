@@ -116,7 +116,7 @@ void create_iron(void)
     lv_label_set_long_mode(iron_temperature, LV_LABEL_LONG_WRAP);          	// Break the long lines
     lv_label_set_recolor(iron_temperature, true);                         	// Enable re-coloring by commands in the text
 	lv_label_set_text_fmt(iron_temperature, "%0.0f", temp_iron);
-    lv_obj_align_to(iron_temperature, frame_iron, LV_ALIGN_CENTER, -32, 0);	// Align
+    lv_obj_align_to(iron_temperature, frame_iron, LV_ALIGN_CENTER, -44, 0);	// Align
     // Label Preset IRON
     preset_iron = lv_label_create(frame_iron);
     lv_obj_set_style_text_font(preset_iron, &lv_font_7Seg_B16, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -180,7 +180,7 @@ void create_air(void)
     lv_label_set_long_mode(air_temperature, LV_LABEL_LONG_WRAP);          	// Break the long lines
     lv_label_set_recolor(air_temperature, true);                         	// Enable re-coloring by commands in the text
 	lv_label_set_text_fmt(air_temperature, "%0.0f", temp_gun);
-    lv_obj_align_to(air_temperature, frame_air, LV_ALIGN_CENTER, -32, 0);		// Align
+    lv_obj_align_to(air_temperature, frame_air, LV_ALIGN_CENTER, -44, 0);		// Align
     // Label Preset Air
     preset_air = lv_label_create(frame_air);
     lv_obj_set_style_text_font(preset_air, &lv_font_7Seg_B16, LV_PART_MAIN | LV_STATE_DEFAULT);
