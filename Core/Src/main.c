@@ -224,13 +224,13 @@ int main(void)
 
   // ThermoCouple INIT
   max31856_init(&therm_iron);
-  //max31856_clear_fault_status(&therm_iron);
-  //max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
-  //max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_DISABLED);
-  //max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
-  //max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
-  //max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
-  //max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
+  max31856_clear_fault_status(&therm_iron);
+  max31856_set_noise_filter(&therm_iron, CR0_FILTER_OUT_60Hz);
+  max31856_set_cold_junction_enable(&therm_iron, CR0_CJ_ENABLED);
+  max31856_set_thermocouple_type(&therm_iron, CR1_TC_TYPE_K);
+  max31856_set_average_samples(&therm_iron, CR1_AVG_TC_SAMPLES_2);
+  max31856_set_open_circuit_fault_detection(&therm_iron, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  max31856_set_conversion_mode(&therm_iron, CR0_CONV_CONTINUOUS);
   //
   max_dbg_i.CR0 = max31856_read_register(&therm_iron, MAX31856_CR0);
   max_dbg_i.CR1 = max31856_read_register(&therm_iron, MAX31856_CR1);
@@ -255,16 +255,15 @@ int main(void)
 
   max_dbg_i.SR = max31856_read_register(&therm_iron, MAX31856_SR);
 
-
   //
   max31856_init(&therm_gun);
- // max31856_clear_fault_status(&therm_gun);
- // max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
- // max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_DISABLED);
- // max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
- // max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
- // max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
- // max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
+  max31856_clear_fault_status(&therm_gun);
+  max31856_set_noise_filter(&therm_gun, CR0_FILTER_OUT_60Hz);
+  max31856_set_cold_junction_enable(&therm_gun, CR0_CJ_ENABLED);
+  max31856_set_thermocouple_type(&therm_gun, CR1_TC_TYPE_K);
+  max31856_set_average_samples(&therm_gun, CR1_AVG_TC_SAMPLES_2);
+  max31856_set_open_circuit_fault_detection(&therm_gun, CR0_OC_DETECT_ENABLED_TC_LESS_2ms);
+  max31856_set_conversion_mode(&therm_gun, CR0_CONV_CONTINUOUS);
 
   max_dbg_g.CR0 = max31856_read_register(&therm_gun, MAX31856_CR0);
   max_dbg_g.CR1 = max31856_read_register(&therm_gun, MAX31856_CR1);
@@ -290,8 +289,8 @@ int main(void)
   max_dbg_g.SR = max31856_read_register(&therm_gun, MAX31856_SR);
 
   // Inicia Flash SPI
-  res = w25qxx_init(&w25qxx, &hspi1, FLASH_CS_GPIO_Port, FLASH_CS_Pin);
-  if (res == W25QXX_Ok) {
+//  res = w25qxx_init(&w25qxx, &hspi1, FLASH_CS_GPIO_Port, FLASH_CS_Pin);
+//  if (res == W25QXX_Ok) {
           //DBG("W25QXX successfully initialized");
           //DBG("Manufacturer       = 0x%2x", w25qxx.manufacturer_id);
           //DBG("Device             = 0x%4x", w25qxx.device_id);
@@ -302,10 +301,10 @@ int main(void)
           //DBG("Page size          = 0x%04lx (%lu)", w25qxx.page_size, w25qxx.page_size);
           //DBG("Pages per sector   = 0x%04lx (%lu)", w25qxx.pages_in_sector, w25qxx.pages_in_sector);
           //DBG("Total size (in kB) = 0x%04lx (%lu)", (w25qxx.block_count * w25qxx.block_size) / 1024, (w25qxx.block_count * w25qxx.block_size) / 1024);
-  }
-  else {
-          //DBG("Unable to initialize w25qxx");
-  }
+//  }
+//  else {
+//          //DBG("Unable to initialize w25qxx");
+//  }
   EepromID = 0xFFFF;
   prg_rev = 0xFFFF;
   target_iron  = 30;
@@ -382,6 +381,7 @@ int main(void)
 		}
 		else {
 			temp_iron = NAN;
+			temp_cj_iron = NAN;
 			max31856_clear_fault_status(&therm_iron);
 		}
 		max31856_read_fault(&therm_gun);
@@ -391,6 +391,7 @@ int main(void)
 		}
 		else {
 			temp_gun = NAN;
+			temp_cj_gun = NAN;
 			max31856_clear_fault_status(&therm_gun);
 		}
 	}
